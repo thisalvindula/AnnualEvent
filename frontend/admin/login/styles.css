@@ -1,0 +1,26 @@
+@import '../../shared/theme.css';
+
+body {
+  background: var(--silver-100);
+  margin: 0;
+}
+
+.login-wrap {
+  min-height: 80vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 360px;
+}
+
+.login-card .brand {
+  justify-content: center;
+}
+
+.login-card h1 {
+  text-align: center;
+}

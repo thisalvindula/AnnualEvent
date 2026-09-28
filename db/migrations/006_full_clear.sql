@@ -1,0 +1,12 @@
+-- Grant for the password-gated "clear database" admin action.
+--
+-- employees was insert/update-only (no DELETE grant) for the same reason
+-- raffle_registrations/raffle_draw_results/vote_votes were before migration
+-- 004: a compromised or buggy app process could never erase it. The app now
+-- has an explicit, cross-module clear action (app/core/system/service.js
+-- clearDatabase()) that re-verifies the logged-in admin's own password
+-- before wiping employees + all raffle/voting data (admin_users and
+-- audit_log are never touched), so the DELETE grant is safe: nothing in the
+-- app can reach it without that extra confirmation, and every clear is
+-- audit-logged.
+GRANT DELETE ON employees TO app_runtime;

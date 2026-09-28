@@ -1,0 +1,23 @@
+@import '../../shared/theme.css';
+
+body {
+  background: var(--silver-100);
+  margin: 0;
+}
+
+.finalist-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+  align-items: center;
+}
+
+.finalist-row span {
+  width: 1.5rem;
+  font-weight: 700;
+  color: var(--navy-700);
+}
+
+.finalist-row input {
+  margin-top: 0;
+}

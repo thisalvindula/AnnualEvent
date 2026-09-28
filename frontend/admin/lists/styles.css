@@ -1,0 +1,24 @@
+@import '../../shared/theme.css';
+
+body {
+  background: var(--silver-100);
+  margin: 0;
+}
+
+/* Tab tiles are <button>s; undo the global primary-button look. */
+button.stat-tile {
+  margin-top: 0;
+  width: auto;
+  padding: 1rem;
+  font: inherit;
+  color: inherit;
+  background: #fff;
+  border: 1px solid var(--silver-200);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+}
+
+.stat-tile.active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent);
+}

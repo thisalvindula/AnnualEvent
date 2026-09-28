@@ -1,0 +1,13 @@
+{$DOMAIN} {
+	# For local dev with DOMAIN=localhost, Caddy serves a self-signed cert automatically.
+	# In production, set DOMAIN to a real subdomain (e.g. event.company.com) and Caddy
+	# obtains a trusted certificate automatically via ACME.
+
+	encode gzip
+
+	reverse_proxy app:3000
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+	}
+}

@@ -1,0 +1,6 @@
+@import '../../shared/theme.css';
+
+body {
+  background: var(--silver-100);
+  margin: 0;
+}
