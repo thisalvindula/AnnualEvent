@@ -8,12 +8,26 @@ export async function fetchCsrfToken() {
   return csrfToken;
 }
 
-export async function postJson(url, csrfToken, body) {
+async function sendJson(method, url, csrfToken, body) {
   const res = await fetch(url, {
-    method: 'POST',
+    method,
     credentials: 'same-origin',
     headers: { 'content-type': 'application/json', 'x-csrf-token': csrfToken },
     body: JSON.stringify(body ?? {}),
+  });
+  const data = await res.json().catch(() => ({}));
+  return { status: res.status, ok: res.ok, data };
+}
+
+export const postJson = (url, csrfToken, body) => sendJson('POST', url, csrfToken, body);
+export const putJson = (url, csrfToken, body) => sendJson('PUT', url, csrfToken, body);
+
+// No request body: fastify rejects an empty body sent with a JSON content-type.
+export async function deleteJson(url, csrfToken) {
+  const res = await fetch(url, {
+    method: 'DELETE',
+    credentials: 'same-origin',
+    headers: { 'x-csrf-token': csrfToken },
   });
   const data = await res.json().catch(() => ({}));
   return { status: res.status, ok: res.ok, data };

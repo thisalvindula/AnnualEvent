@@ -1,2 +1,85 @@
-@import '../../shared/theme.css';
-@import '../../shared/screen-theme.css';
+/* Voting big screen (/screen/vote) — .vt- layouts on the stage design
+   system (shared/stage/stage.css). Authored for the 1920x1080 canvas. */
+@import '../../shared/stage/stage.css';
+
+/* ---------- live view: leaderboard left, countdown + QR right ---------- */
+.vt-live { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 560px; grid-template-rows: minmax(0, 1fr); gap: var(--space-6); }
+.vt-live__board { min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: var(--space-3); }
+.vt-live__head { flex: none; display: flex; align-items: flex-end; justify-content: space-between; gap: var(--space-4); }
+.vt-total { display: flex; flex-direction: column; align-items: flex-end; }
+.vt-total__count { font-size: var(--fs-head); }
+
+.vt-live__side { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-5); text-align: center; }
+.vt-live__clock { display: flex; flex-direction: column; align-items: center; gap: var(--space-1); }
+.vt-phase { font-size: var(--fs-subhead); color: var(--silver-300); line-height: 1.2; }
+
+/* ---------- leaderboard ---------- */
+.vt-board { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.vt-row {
+  display: flex; align-items: center; gap: var(--space-3);
+  padding: 12px var(--space-3) 12px 12px;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(180deg, rgba(23, 51, 94, .5), rgba(10, 20, 40, .62));
+  border: 1px solid rgba(221, 227, 236, .14);
+  will-change: transform;
+}
+.vt-row--leader { border-color: rgba(224, 182, 76, .5); box-shadow: 0 0 60px rgba(224, 182, 76, .16); }
+.vt-board--dense { gap: 10px; }
+.vt-board--dense .vt-row { flex: 1 1 0; min-height: 0; max-height: 96px; padding: 6px var(--space-3) 6px 10px; }
+.vt-board--dense .vt-rank { width: 56px; height: 56px; font-size: var(--fs-label); }
+.vt-board--dense .vt-row__name, .vt-board--dense .vt-row__votes { font-size: 40px; }
+.vt-board--dense .vt-row__main { gap: 4px; }
+.vt-board--dense .vt-bar { height: 12px; }
+
+.vt-rank {
+  flex: none; width: 64px; height: 64px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-display); font-weight: 800; font-size: var(--fs-subhead); line-height: 1;
+  background: rgba(221, 227, 236, .1); color: var(--silver-300);
+  border: 1px solid rgba(221, 227, 236, .18);
+}
+.vt-rank--1 { background: linear-gradient(180deg, var(--gold-bright), var(--gold)); color: #3a2c04; border-color: transparent; box-shadow: 0 0 28px rgba(224, 182, 76, .5); }
+.vt-rank--2 { background: linear-gradient(180deg, var(--silver-100), var(--silver-400)); color: var(--navy-900); border-color: transparent; }
+.vt-rank--3 { background: linear-gradient(180deg, #d9a679, #96643a); color: #fff; border-color: transparent; }
+
+.vt-row__main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--space-1); }
+.vt-row__label { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); }
+.vt-row__who { display: flex; align-items: baseline; gap: var(--space-2); min-width: 0; }
+.vt-row__name {
+  font-family: var(--font-display); font-weight: 700; font-size: var(--fs-subhead); line-height: 1.05;
+  color: var(--silver-100); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.vt-row__song { font-size: var(--fs-caption); color: var(--silver-400); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.vt-row__votes { flex: none; font-size: var(--fs-subhead); color: var(--accent-bright); }
+.vt-row--leader .vt-row__votes { color: var(--gold-bright); }
+
+.vt-bar { height: 16px; border-radius: var(--radius-pill); background: rgba(255, 255, 255, .08); overflow: hidden; }
+.vt-bar__fill {
+  height: 100%; width: 0; border-radius: inherit;
+  background: linear-gradient(90deg, var(--accent), var(--accent-bright));
+  transition: width var(--dur-slow) var(--ease-out-expo);
+}
+.vt-bar__fill--leader { background: linear-gradient(90deg, var(--gold), var(--gold-bright)); box-shadow: 0 0 18px rgba(224, 182, 76, .55); }
+
+/* ---------- final result ---------- */
+.vt-final { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: space-between; gap: var(--space-2); text-align: center; min-height: 0; }
+.vt-final__head { display: flex; flex-direction: column; align-items: center; gap: var(--space-1); }
+.vt-final__label { font-size: var(--fs-head); letter-spacing: .04em; text-transform: uppercase; line-height: 1.1; padding-bottom: .06em; }
+.vt-final__winners { display: flex; align-items: flex-end; justify-content: center; gap: var(--space-6); width: 100%; }
+.vt-final__winner { display: flex; flex-direction: column; align-items: center; gap: var(--space-1); min-width: 0; }
+.vt-final__name { font-size: var(--fs-winner); line-height: 1.02; padding-bottom: .06em; font-weight: 800; margin-bottom: var(--space-2); }
+.vt-final__winners--tie .vt-final__name { font-size: var(--fs-head); }
+.vt-final__song { font-size: var(--fs-label); color: var(--silver-300); margin-top: calc(var(--space-1) * -1); }
+
+/* ---- Podium: three-tier stage pedestal with rim lights and floor rays ---- */
+.vt-final__stand { --pod-w: 600px; position: relative; width: var(--pod-w); display: flex; flex-direction: column; align-items: center; }
+.vt-final__winners--tie .vt-final__stand { --pod-w: 400px; }
+.vt-final__stand::before { /* warm light rising from the pedestal behind the avatar */
+  content: ''; position: absolute; z-index: 0; left: 20%; right: 20%; top: -10%; bottom: 14%;
+  background: radial-gradient(ellipse at 50% 92%, rgba(245,216,136,.18), rgba(127,166,255,.08) 45%, transparent 70%);
+  filter: blur(8px); pointer-events: none;
+}
+.vt-final__stand .ev-avatar { position: relative; z-index: 4; margin-bottom: calc(var(--pod-w) * -0.066); animation: vt-avatar-float 5s ease-in-out infinite; }
+.vt-podium { position: relative; z-index: 2; display: block; width: 100%; height: auto; overflow: visible; }
+@keyframes vt-avatar-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+@media (prefers-reduced-motion: reduce) { .vt-final__stand .ev-avatar { animation: none; } }

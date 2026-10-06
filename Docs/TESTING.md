@@ -152,9 +152,9 @@ as `verify_nic_mismatch`, `verify_unknown_employee`, or `verify_locked`.
 ```bash
 docker compose exec db psql -U event_app_owner -d annual_event -c "\dt"
 
-# Confirm NIC digits are never stored in plaintext:
+# Confirm NIC digits are never stored in plaintext (hash + encrypted value only):
 docker compose exec db psql -U event_app_owner -d annual_event \
-  -c "SELECT emp_id, nic_last4_hash FROM employees LIMIT 3;"
+  -c "SELECT emp_id, nic_last4_hash, nic_encrypted FROM employees LIMIT 3;"
 
 # Confirm the app's runtime DB role can append to audit_log but never alter it:
 docker compose exec db psql -U event_app_owner -d annual_event -c "
@@ -171,9 +171,8 @@ employees imported (section 3, step 4).
 
 ### 7.1 Configure the gift list
 
-Open `https://localhost/admin/raffle` in a browser (or use curl). The gift
-list must be **exactly 10 "normal" + 15 "premium"** entries — the server
-rejects anything else:
+Open `https://localhost/admin/raffle` in a browser (or use curl). Each gift
+has an `id`, `place`, `quantity` and `description`; add as many as you like:
 
 ```bash
 curl -sk -c c.txt https://localhost/admin/login -o l.html
@@ -184,15 +183,14 @@ curl -sk -b c.txt -c c.txt -H "Content-Type: application/json" -H "x-csrf-token:
 curl -sk -b c.txt https://localhost/admin/raffle -o ra.html
 RCSRF=$(grep -o 'data-csrf-token="[^"]*"' ra.html | sed -E 's/.*"(.*)"/\1/')
 
-# gifts must be exactly 10 normal + 15 premium, or this returns a 400
 curl -sk -b c.txt -H "Content-Type: application/json" -H "x-csrf-token: $RCSRF" \
-  -d '{"gifts":[{"name":"Gift 1","tier":"normal"}, ... ]}' \
-  https://localhost/admin/api/raffle/config
+  -d '{"id":1,"place":"1st place","quantity":1,"description":"Cash 100000"}' \
+  https://localhost/admin/api/raffle/gifts
 ```
 
-Try 9 normal + 15 premium → expect a `400` with a message naming the actual
-counts. Try configuring gifts again after opening (next step) → expect
-`400 "Cannot change the gift list once the raffle has opened"`.
+Try a `quantity` of 0 or a duplicate `id` → expect a `400` / `409`. Edit a gift
+with `PUT /admin/api/raffle/gifts/1` and remove one with `DELETE` (a gift
+that already has winners can't be deleted — expect `409`).
 
 ### 7.2 Open, register, and verify duplicate/window rejection
 
@@ -261,7 +259,7 @@ register or as the admin seals the list / draws winners.
 curl -sk -b c.txt -D headers.txt -o registrations.csv https://localhost/admin/api/raffle/registrations/export
 grep -i 'x-entry-count\|x-sha-256' headers.txt
 
-# Draw one winner at a time (normal gifts first, premium last):
+# Draw one winner at a time (ascending gift id; a gift with quantity N takes N draws):
 curl -sk -b c.txt -H "x-csrf-token: $RCSRF" -X POST https://localhost/admin/api/raffle/draw/next
 ```
 

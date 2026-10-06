@@ -1,38 +1,39 @@
 import { useState } from 'preact/hooks';
 import { postJson } from '../../shared/csrf.js';
+import { ConfirmDialog } from '../../shared/ui/ConfirmDialog.jsx';
+import { Message } from '../../shared/ui/Message.jsx';
 
 export function ClearDatabaseCard({ csrfToken, raffleStatus, voteStatus, onCleared }) {
   const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [result, setResult] = useState(null);
 
   const disabled = raffleStatus === 'open' || voteStatus === 'open';
 
-  async function handleClear(e) {
-    e.preventDefault();
-    const confirmed = window.confirm(
-      'This permanently wipes employees, raffle entries/gifts/draw results, and voting finalists/votes. ' +
-        'Admin accounts and the audit log are kept. This cannot be undone. Continue?'
-    );
-    if (!confirmed) return;
-
-    const { data } = await postJson('/admin/api/system/clear', csrfToken, { password });
-    setResult(data);
-    if (data.ok) {
-      setPassword('');
-      onCleared?.();
+  async function handleClear() {
+    setBusy(true);
+    const res = await postJson('/admin/api/system/clear', csrfToken, { password });
+    setBusy(false);
+    setConfirm(false);
+    if (!res.ok || !res.data.ok) {
+      return setResult({ kind: 'error', text: res.data?.message ?? 'Could not clear the data. Please try again.' });
     }
+    setPassword('');
+    setResult({ kind: 'success', text: 'Everything has been cleared. You can start setting up the next event.' });
+    onCleared?.();
   }
 
   return (
-    <div className="card">
-      <h2>Clear database</h2>
-      <p>
-        Wipes all employees, raffle data, and voting data so the event can start completely fresh. Admin accounts
-        and the audit log are kept. Close the raffle and voting first — this is disabled while either is open.
-        Requires your own admin password to confirm.
-      </p>
-      <form onSubmit={handleClear}>
-        <label htmlFor="clearPassword">Your admin password</label>
+    <details className="danger-zone">
+      <summary>Start a brand-new event (erases everything)</summary>
+      <div className="danger-body">
+        <p>
+          This erases all employees, raffle entries, prizes and winners, and voting finalists and votes, so you can
+          begin a completely fresh event. Admin accounts and the activity log are kept. It can't be undone.
+          {disabled && ' Close the raffle and voting first — this is unavailable while either one is open.'}
+        </p>
+        <label htmlFor="clearPassword">Type your admin password to confirm</label>
         <input
           id="clearPassword"
           type="password"
@@ -41,11 +42,26 @@ export function ClearDatabaseCard({ csrfToken, raffleStatus, voteStatus, onClear
           onInput={(e) => setPassword(e.currentTarget.value)}
           disabled={disabled}
         />
-        <button type="submit" className="btn-danger" disabled={disabled || !password}>
-          Clear database
-        </button>
-      </form>
-      {result && <pre>{JSON.stringify(result, null, 2)}</pre>}
-    </div>
+        <div className="actions">
+          <button type="button" className="btn-danger" onClick={() => setConfirm(true)} disabled={disabled || !password}>
+            Erase everything
+          </button>
+        </div>
+        <Message text={result?.text} kind={result?.kind} />
+      </div>
+      <ConfirmDialog
+        open={confirm}
+        danger
+        title="Erase everything?"
+        confirmLabel="Yes, erase everything"
+        busy={busy}
+        onConfirm={handleClear}
+        onCancel={() => setConfirm(false)}
+      >
+        <p>
+          All employees, raffle data and voting data will be permanently erased. This can't be undone.
+        </p>
+      </ConfirmDialog>
+    </details>
   );
 }

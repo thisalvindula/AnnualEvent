@@ -2,7 +2,7 @@ import { pool, query } from '../../core/db.js';
 
 export async function getConfig() {
   const { rows } = await query(
-    'SELECT id, opens_at, closes_at, duration_minutes, status FROM vote_config WHERE id = 1'
+    `SELECT id, opens_at, closes_at, duration_minutes, CASE WHEN status = 'open' AND closes_at <= now() THEN 'closed' ELSE status END AS status FROM vote_config WHERE id = 1`
   );
   return rows[0];
 }
@@ -20,7 +20,7 @@ export async function setStatusOpen(durationMinutes) {
   const { rows } = await query(
     `UPDATE vote_config
      SET status = 'open', opens_at = now(), closes_at = now() + make_interval(mins => $1::int), duration_minutes = $1::int
-     WHERE id = 1 AND status IN ('draft', 'closed')
+     WHERE id = 1 AND (status IN ('draft', 'closed') OR (status = 'open' AND closes_at <= now()))
      RETURNING id, opens_at, closes_at, duration_minutes, status`,
     [durationMinutes]
   );
@@ -64,9 +64,22 @@ export async function resetVoting({ wipeFinalists }) {
 
 export async function getFinalists() {
   const { rows } = await query(
-    'SELECT id, name, song, position, emp_id AS "empId" FROM vote_finalists ORDER BY position ASC'
+    `SELECT f.id, f.name, f.song, f.position, f.emp_id AS "empId", e.image_name AS "imageName"
+     FROM vote_finalists f
+     LEFT JOIN employees e ON e.emp_id = f.emp_id
+     ORDER BY f.position ASC`
   );
   return rows;
+}
+
+/** Returns the updated finalist row, or null if no finalist has that id. */
+export async function updateFinalist(id, { name, song, empId }) {
+  const { rows } = await query(
+    `UPDATE vote_finalists SET name = $2, song = $3, emp_id = $4 WHERE id = $1
+     RETURNING id, name, song, position, emp_id AS "empId"`,
+    [id, name, song, empId]
+  );
+  return rows[0] ?? null;
 }
 
 export async function replaceFinalists(finalists) {
@@ -114,10 +127,12 @@ export async function insertVote({ empId, finalistId, ip, userAgent }) {
 
 export async function getTally() {
   const { rows } = await query(
-    `SELECT f.id, f.name, f.song, f.position, f.emp_id AS "empId", count(v.emp_id)::int AS votes
+    `SELECT f.id, f.name, f.song, f.position, f.emp_id AS "empId", e.image_name AS "imageName",
+            count(v.emp_id)::int AS votes
      FROM vote_finalists f
+     LEFT JOIN employees e ON e.emp_id = f.emp_id
      LEFT JOIN vote_votes v ON v.finalist_id = f.id
-     GROUP BY f.id, f.name, f.song, f.position, f.emp_id
+     GROUP BY f.id, f.name, f.song, f.position, f.emp_id, e.image_name
      ORDER BY f.position ASC`
   );
   return rows;

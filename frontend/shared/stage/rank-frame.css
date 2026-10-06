@@ -1,0 +1,46 @@
+/* RankFrame — animated vector avatar frames (see RankFrame.jsx). */
+.rf-frame {
+  --rf-size: 140px;
+  position: relative; flex: none;
+  width: var(--rf-size); height: var(--rf-size);
+  opacity: .42; filter: saturate(.35);
+  transition: opacity var(--dur-med) var(--ease-standard), filter var(--dur-med) var(--ease-standard);
+}
+.rf-frame--xl { --rf-size: 320px; }
+.rf-frame--lg { --rf-size: 230px; }
+.rf-frame--md { --rf-size: 170px; }
+.rf-frame--sm { --rf-size: 140px; }
+.rf-frame--xs { --rf-size: 104px; }
+.rf-frame svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.rf-frame__photo {
+  position: absolute; left: 50%; top: 48%;
+  width: 54%; height: 54%; transform: translate(-50%, -50%);
+  border-radius: 50%; overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(160deg, var(--navy-600, #17335e), var(--navy-800, #0a1428));
+  color: var(--silver-300);
+  font-family: var(--font-display); font-weight: 800;
+  font-size: calc(var(--rf-size) * .2);
+}
+.rf-frame__photo img { width: 100%; height: 100%; object-fit: cover; }
+
+.rf-frame--filled {
+  opacity: 1; filter: none;
+  animation: ev-pop-in var(--dur-slow) var(--ease-out-back) both;
+}
+.rf-frame--filled svg { filter: drop-shadow(0 0 calc(var(--rf-size) * .06) color-mix(in srgb, var(--rf-glow) 55%, transparent)); }
+.rf-frame--grand.rf-frame--filled svg { animation: rf-frame-glow 2.8s ease-in-out infinite; }
+
+.rf-glint { transform-box: fill-box; transform-origin: center; opacity: 0; animation: rf-glint 3.2s ease-in-out infinite; }
+@keyframes rf-glint {
+  0%, 70%, 100% { opacity: 0; transform: scale(.2) rotate(0deg); }
+  80% { opacity: 1; transform: scale(1) rotate(45deg); }
+  90% { opacity: 0; transform: scale(.4) rotate(90deg); }
+}
+@keyframes rf-frame-glow {
+  0%, 100% { filter: drop-shadow(0 0 10px color-mix(in srgb, var(--rf-glow) 40%, transparent)); }
+  50% { filter: drop-shadow(0 0 26px color-mix(in srgb, var(--rf-glow) 85%, transparent)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rf-frame--filled, .rf-frame--grand.rf-frame--filled svg, .rf-glint { animation: none; }
+}

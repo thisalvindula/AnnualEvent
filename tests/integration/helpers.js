@@ -19,6 +19,7 @@ import argon2 from 'argon2';
 import 'dotenv/config';
 import { pool as appPool } from '../../app/core/db.js';
 import { importEmployees } from '../../app/core/employees/index.js';
+import { createGift } from '../../app/modules/raffle/service.js';
 
 const ownerClient = new pg.Client({ connectionString: process.env.MIGRATION_DATABASE_URL });
 let ownerConnected = false;
@@ -68,7 +69,6 @@ export function makeTestEmployees(count, prefix = 'T') {
     return {
       empId: `${prefix}${String(n).padStart(3, '0')}`,
       name: `Test Employee ${n}`,
-      dept: 'QA',
       last4: String(1000 + n).slice(-4),
     };
   });
@@ -93,11 +93,23 @@ export async function createAdmin(username, password, role) {
   );
 }
 
-export function normalGifts(count = 10) {
-  return Array.from({ length: count }, (_, i) => ({ name: `Normal Gift ${i + 1}`, tier: 'normal' }));
+/**
+ * Adds gifts through the real service (so validation applies). Defaults to a
+ * realistic mix: two single-winner places and a 20-winner consolation prize.
+ */
+export async function seedGifts(gifts = defaultGifts()) {
+  for (const gift of gifts) {
+    const result = await createGift(gift);
+    if (!result.ok) throw new Error(`seedGifts failed: ${JSON.stringify(result)}`);
+  }
 }
-export function premiumGifts(count = 15) {
-  return Array.from({ length: count }, (_, i) => ({ name: `Premium Gift ${i + 1}`, tier: 'premium' }));
+
+export function defaultGifts() {
+  return [
+    { id: 1, place: '1st place', quantity: 1, description: 'Cash 100000' },
+    { id: 2, place: '2nd place', quantity: 1, description: '50000 gift voucher from vendor A' },
+    { id: 10, place: 'Consolation Prize', quantity: 20, description: 'Cash 5000' },
+  ];
 }
 
 export function sleep(ms) {

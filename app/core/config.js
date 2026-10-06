@@ -11,6 +11,10 @@ export const config = {
   port: Number(process.env.PORT ?? 3000),
   trustProxy: process.env.TRUST_PROXY === 'true',
 
+  // Fixed public address of the app. The printed QR codes encode this, so it
+  // must not depend on the address a screen happens to be opened at.
+  publicBaseUrl: (process.env.PUBLIC_BASE_URL ?? '').trim().replace(/\/+$/, ''),
+
   databaseUrl: required('DATABASE_URL'),
   dbPoolMin: Number(process.env.DB_POOL_MIN ?? 2),
   dbPoolMax: Number(process.env.DB_POOL_MAX ?? 20),

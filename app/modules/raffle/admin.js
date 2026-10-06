@@ -1,31 +1,48 @@
 import { requireRole } from '../../core/auth/middleware.js';
 import { pages, sendPage } from '../../core/builtPages.js';
+import { config } from '../../core/config.js';
 import * as service from './service.js';
 import * as repo from './repo.js';
 
 const OPERATOR_OR_AUDITOR = ['raffle_operator', 'auditor'];
 
-const giftsSchema = {
+const giftBodyProperties = {
+  id: { type: 'integer', minimum: 1, maximum: 2147483647 },
+  place: { type: 'string', minLength: 1, maxLength: 100 },
+  quantity: { type: 'integer', minimum: 1, maximum: 100000 },
+  description: { type: 'string', minLength: 1, maxLength: 500 },
+  section: { type: 'string', enum: ['podium', 'consolation'] },
+};
+
+const createGiftSchema = {
   body: {
     type: 'object',
-    required: ['gifts'],
+    required: ['id', 'place', 'quantity', 'description'],
     additionalProperties: false,
-    properties: {
-      gifts: {
-        type: 'array',
-        items: {
-          type: 'object',
-          required: ['name', 'tier'],
-          additionalProperties: false,
-          properties: {
-            name: { type: 'string', minLength: 1, maxLength: 200 },
-            tier: { type: 'string', enum: ['normal', 'premium'] },
-          },
-        },
-      },
-    },
+    properties: giftBodyProperties,
   },
 };
+
+const updateGiftSchema = {
+  params: {
+    type: 'object',
+    properties: { id: { type: 'integer', minimum: 1, maximum: 2147483647 } },
+  },
+  body: {
+    type: 'object',
+    additionalProperties: false,
+    properties: giftBodyProperties,
+  },
+};
+
+const deleteGiftSchema = { params: updateGiftSchema.params };
+
+function giftResultStatus(result) {
+  if (result.ok) return 200;
+  if (result.reason === 'not_found') return 404;
+  if (result.reason === 'exists' || result.reason === 'in_use') return 409;
+  return 400;
+}
 
 const openSchema = {
   body: {
@@ -60,12 +77,17 @@ export async function registerRaffleAdminRoutes(app) {
     async (request, reply) => {
       const status = await service.getStatus();
       const gifts = await repo.getGifts();
+      const snapshot = await service.getSnapshot();
       return {
+        screenPath: `/screen/raffle?token=${encodeURIComponent(config.screenTokens.raffle)}`,
         status: status.status,
         entryCount: status.entryCount,
         secondsRemaining: status.secondsRemaining,
-        giftsConfigured: gifts.length === 25,
+        giftsConfigured: gifts.length > 0,
+        totalPrizes: gifts.reduce((sum, g) => sum + g.quantity, 0),
         gifts,
+        sealed: snapshot.sealed,
+        recentWinners: snapshot.recentWinners,
       };
     }
   );
@@ -73,15 +95,41 @@ export async function registerRaffleAdminRoutes(app) {
   // Read-only gift list for the admin "Lists" page; any logged-in admin.
   app.get('/admin/api/raffle/gifts', { preHandler: requireRole() }, async (request, reply) => {
     const gifts = await repo.getGifts();
-    return { count: gifts.length, gifts };
+    return { count: gifts.length, totalPrizes: gifts.reduce((sum, g) => sum + g.quantity, 0), gifts };
   });
 
   app.post(
-    '/admin/api/raffle/config',
-    { onRequest: app.csrfProtection, preHandler: requireRole('raffle_operator'), schema: giftsSchema },
+    '/admin/api/raffle/gifts',
+    { onRequest: app.csrfProtection, preHandler: requireRole('raffle_operator'), schema: createGiftSchema },
     async (request, reply) => {
-      const result = await service.setGifts(request.body.gifts);
-      if (!result.ok) reply.code(400);
+      const result = await service.createGift(request.body, { ip: request.ip, by: request.adminSession.username });
+      reply.code(result.ok ? 201 : giftResultStatus(result));
+      return result;
+    }
+  );
+
+  app.put(
+    '/admin/api/raffle/gifts/:id',
+    { onRequest: app.csrfProtection, preHandler: requireRole('raffle_operator'), schema: updateGiftSchema },
+    async (request, reply) => {
+      const result = await service.updateGift(request.params.id, request.body, {
+        ip: request.ip,
+        by: request.adminSession.username,
+      });
+      reply.code(giftResultStatus(result));
+      return result;
+    }
+  );
+
+  app.delete(
+    '/admin/api/raffle/gifts/:id',
+    { onRequest: app.csrfProtection, preHandler: requireRole('raffle_operator'), schema: deleteGiftSchema },
+    async (request, reply) => {
+      const result = await service.deleteGift(request.params.id, {
+        ip: request.ip,
+        by: request.adminSession.username,
+      });
+      reply.code(giftResultStatus(result));
       return result;
     }
   );

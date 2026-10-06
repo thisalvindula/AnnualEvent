@@ -5,6 +5,8 @@
 const channels = new Map(); // channel name -> Set<Fastify raw response>
 
 export function subscribe(channelName, request, reply) {
+  reply.hijack(); // tells Fastify this response is managed manually from here on,
+  // so app.close()'s drain doesn't wait on or interfere with this open connection
   reply.raw.writeHead(200, {
     'Content-Type': 'text/event-stream',
     'Cache-Control': 'no-cache, no-transform',
@@ -46,4 +48,19 @@ export function publish(channelName, event, data) {
 
 export function subscriberCount(channelName) {
   return channels.get(channelName)?.size ?? 0;
+}
+
+/**
+ * Tells every open screen connection the server is going away (so a
+ * reconnect isn't a surprise) and closes them. Used only during graceful
+ * shutdown — the browser's EventSource reconnects on its own afterwards.
+ */
+export function closeAll() {
+  for (const subscribers of channels.values()) {
+    for (const res of subscribers) {
+      res.write('event: server_shutdown\ndata: {"reconnect":true}\n\n');
+      res.end();
+    }
+    subscribers.clear();
+  }
 }

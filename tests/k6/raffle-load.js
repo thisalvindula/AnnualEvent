@@ -8,7 +8,7 @@
 //        node db/seed/gen-load-test-employees.js 800 > employees.csv
 //        curl -sk -b cookies.txt -H "Content-Type: text/csv" -H "x-csrf-token: $CSRF" \
 //          --data-binary @employees.csv https://<host>/admin/api/employees/import
-//   2. As raffle_operator: configure the 25-gift list and open registration
+//   2. As raffle_operator: configure the gift list and open registration
 //      with a window long enough to cover the test's duration.
 //   3. Add this machine's IP to RATE_LIMIT_ALLOWLIST in .env and restart the
 //      app (see the "Load testing" section of docs/RUNBOOK.md) — otherwise

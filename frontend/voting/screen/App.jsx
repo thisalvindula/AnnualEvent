@@ -1,51 +1,79 @@
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
 import { useEventSource } from '../../shared/useEventSource.js';
 import { usePolling } from '../../shared/usePolling.js';
-import { Countdown } from '../../shared/ui/Countdown.jsx';
-import { ScreenQr } from '../../shared/ui/ScreenQr.jsx';
-import { Confetti } from '../../shared/Confetti.jsx';
-import { EmployeePhoto } from '../../shared/ui/EmployeePhoto.jsx';
+import { AnimatedNumber, Avatar, Countdown, MetalText, ScreenQr, Stage, StageHeader } from '../../shared/stage/Stage.jsx';
 import { LiveVoteBars } from './LiveVoteBars.jsx';
 
-const RESULT_COLORS = ['#f5d888', '#e0b64c', '#ffffff', '#7fa6ff'];
 const token = new URLSearchParams(location.search).get('token') ?? '';
 const STREAM_URL = `/screen/vote/stream?token=${encodeURIComponent(token)}`;
 
-function useAnimatedTotal(value) {
-  const [displayed, setDisplayed] = useState(value);
-  const shownRef = useRef(value);
-
-  useEffect(() => {
-    const from = shownRef.current;
-    const to = value;
-    if (from === to) return undefined;
-    const start = performance.now();
-    let rafId;
-    function frame(now) {
-      const t = Math.min(1, (now - start) / 500);
-      const eased = 1 - Math.pow(1 - t, 3);
-      setDisplayed(Math.round(from + (to - from) * eased));
-      if (t < 1) {
-        rafId = requestAnimationFrame(frame);
-      } else {
-        shownRef.current = to;
-      }
-    }
-    rafId = requestAnimationFrame(frame);
-    return () => cancelAnimationFrame(rafId);
-  }, [value]);
-
-  return displayed;
+// Minimal plinth: a slim dark-glass cylinder on a thin base plate, with a
+// fine gold rim. The avatar stands at the centre of the top lid.
+function Podium() {
+  return (
+    <svg className="vt-podium" viewBox="0 0 620 150" aria-hidden="true">
+      <defs>
+        <linearGradient id="podSide" x1="0" x2="1" y1="0" y2="0">
+          <stop offset="0" stop-color="#070d20" />
+          <stop offset=".22" stop-color="#1b2a55" />
+          <stop offset=".38" stop-color="#27386b" />
+          <stop offset=".6" stop-color="#13204a" />
+          <stop offset="1" stop-color="#070d20" />
+        </linearGradient>
+        <linearGradient id="podShade" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0" stop-color="#000" stop-opacity="0" />
+          <stop offset="1" stop-color="#000" stop-opacity=".5" />
+        </linearGradient>
+        <radialGradient id="podLid" cx=".5" cy=".4" r=".7">
+          <stop offset="0" stop-color="#34467d" />
+          <stop offset=".6" stop-color="#1a2a58" />
+          <stop offset="1" stop-color="#0e1737" />
+        </radialGradient>
+        <radialGradient id="podFloor" cx=".5" cy=".5" r=".5">
+          <stop offset="0" stop-color="#f5d888" stop-opacity=".28" />
+          <stop offset="1" stop-color="#f5d888" stop-opacity="0" />
+        </radialGradient>
+        <filter id="podGlow" x="-10%" y="-80%" width="120%" height="260%">
+          <feGaussianBlur stdDeviation="3" result="b" />
+          <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
+        </filter>
+      </defs>
+      <ellipse cx="310" cy="128" rx="330" ry="34" fill="url(#podFloor)" />
+      {/* base plate */}
+      <path d="M20 84V98A290 34 0 0 0 600 98V84Z" fill="#0b132d" />
+      <ellipse cx="310" cy="84" rx="290" ry="34" fill="#121d42" />
+      <path d="M20 84A290 34 0 0 0 600 84" fill="none" stroke="#f5d888" stroke-width="1" stroke-opacity=".35" />
+      {/* plinth */}
+      <path d="M70 40V86A240 28 0 0 0 550 86V40Z" fill="url(#podSide)" />
+      <path d="M70 40V86A240 28 0 0 0 550 86V40Z" fill="url(#podShade)" />
+      <ellipse cx="310" cy="40" rx="240" ry="28" fill="url(#podLid)" />
+      <ellipse cx="310" cy="40" rx="240" ry="28" fill="none" stroke="#f5d888" stroke-width="1.5" stroke-opacity=".9" />
+      <path d="M70 40A240 28 0 0 0 550 40" fill="none" stroke="#f5d888" stroke-width="2" filter="url(#podGlow)" />
+      <ellipse cx="310" cy="42" rx="120" ry="12" fill="#000" opacity=".35" />
+    </svg>
+  );
 }
 
 export function App() {
-  const events = useEventSource(STREAM_URL, ['started', 'tally', 'closed']);
+  const events = useEventSource(STREAM_URL, ['started', 'tally', 'closed', 'server_shutdown']);
   const status = usePolling('/vote/api/status', 1000);
 
   const [tally, setTally] = useState([]);
   const [totalVotes, setTotalVotes] = useState(0);
-  const [confettiBurst, setConfettiBurst] = useState(null);
-  const firedFinaleRef = useRef(false);
+  const [reconnecting, setReconnecting] = useState(false);
+
+  useEffect(() => {
+    if (events.server_shutdown) setReconnecting(true);
+  }, [events.server_shutdown]);
+
+  // Cleared once anything newer arrives on the stream after the shutdown
+  // notice — proof the browser's automatic EventSource reconnect succeeded.
+  useEffect(() => {
+    if (!reconnecting) return;
+    const shutdownAt = events.server_shutdown?.receivedAt ?? 0;
+    const latestOther = Math.max(events.started?.receivedAt ?? 0, events.tally?.receivedAt ?? 0, events.closed?.receivedAt ?? 0);
+    if (latestOther > shutdownAt) setReconnecting(false);
+  }, [events, reconnecting]);
 
   // The vote window expires by time (closes_at), which /vote/api/status
   // reports as soon as the countdown reaches zero — independent of whether
@@ -67,28 +95,16 @@ export function App() {
     setTotalVotes(data.totalVotes);
   }, [events.closed]);
 
-  useEffect(() => {
-    if (!final || firedFinaleRef.current || tally.length === 0) return;
-    const sorted = [...tally].sort((a, b) => b.votes - a.votes);
-    if (sorted[0].votes > 0) {
-      firedFinaleRef.current = true;
-      setConfettiBurst({ id: Date.now(), configs: [{ colors: RESULT_COLORS }] });
-    }
-  }, [final, tally]);
-
-  const animatedTotal = useAnimatedTotal(totalVotes);
-
+  let badge = 'waiting';
   let phase = 'Checking status…';
-  let liveBadge = { text: 'Waiting', live: false };
   if (status?.isOpen) {
-    phase = 'Voting is open — cast your vote by scanning the QR code';
-    liveBadge = { text: 'LIVE', live: true };
-  } else if (status?.status === 'closed') {
-    phase = 'Voting has closed — final result';
-    liveBadge = { text: 'Final result', live: false };
+    badge = 'live';
+  } else if (final) {
+    badge = 'final';
+    phase = 'Voting has closed';
   } else if (status) {
+    badge = 'coming-up';
     phase = 'Voting has not opened yet';
-    liveBadge = { text: 'Coming up', live: false };
   }
 
   const sorted = [...tally].sort((a, b) => b.votes - a.votes);
@@ -96,54 +112,65 @@ export function App() {
   const winners = topVotes > 0 ? sorted.filter((f) => f.votes === topVotes) : [];
   const isTie = winners.length > 1;
   const showResultHero = final && winners.length > 0;
-  const showQr = Boolean(status?.isOpen);
+  const mood = showResultHero ? 'celebration' : status?.isOpen ? 'live' : 'calm';
 
   return (
-    <div className="screen-body">
-      <Confetti burst={confettiBurst} />
-      <div className="screen-shell">
-        <div className="screen-header">
-          <div className="screen-eyebrow">Annual Event</div>
-          <h1>Best Singer — Live Vote</h1>
-          <div className={`screen-live-badge ${liveBadge.live ? '' : 'idle'}`}>
-            <span className="live-dot" />
-            <span>{liveBadge.text}</span>
-          </div>
-          <div className="screen-phase">{phase}</div>
-        </div>
+    <Stage mood={mood} lights={showResultHero}>
+      <StageHeader badge={reconnecting ? 'waiting' : badge} badgeLabel={reconnecting ? 'Reconnecting…' : undefined} />
 
-        <div className="screen-main">
-          {showQr && <ScreenQr path="/vote" label="vote" />}
-          <div className="screen-main-content">
-            <div className="screen-clock-wrap">
-              <Countdown
-                isOpen={Boolean(status?.isOpen)}
-                secondsRemaining={status?.secondsRemaining ?? 0}
-                status={status?.status}
-              />
-            </div>
-
-            {showResultHero && (
-              <div id="resultHero" className={`result-hero show ${isTie ? 'tie' : ''}`}>
-                <span className="crown-lg">&#128081;</span>
-                <span className="result-label">{isTie ? 'Audience Favorites — It’s a Tie!' : 'Audience Favorite'}</span>
-                <div className="result-winners">
-                  {winners.map((w) => (
-                    <div className="result-winner" key={w.id}>
-                      <EmployeePhoto empId={w.empId} name={w.name} size="lg" />
-                      <span className="result-name">{w.name}</span>
-                    </div>
-                  ))}
+      <main className="ev-main">
+        {showResultHero ? (
+          <div id="resultHero" className="vt-final ev-fade-in">
+            <header className="vt-final__head">
+              <div className="ev-eyebrow">Best Singer</div>
+              <MetalText as="div" tone="gold" className="vt-final__label">
+                {isTie ? 'Audience Favorites — It’s a Tie!' : 'Audience Favorite'}
+              </MetalText>
+            </header>
+            <div className={`vt-final__winners ${isTie ? 'vt-final__winners--tie' : ''}`}>
+              {winners.map((w) => (
+                <div className="vt-final__winner" key={w.id}>
+                  <MetalText as="div" tone="gold" sweep className="vt-final__name">{w.name}</MetalText>
+                  {w.song ? <div className="vt-final__song">{w.song}</div> : null}
+                  <div className="vt-final__stand">
+                    <Avatar name={w.name} imageName={w.imageName} size={isTie ? 'lg' : 'xl'} tier="premium" />
+                    <Podium />
+                  </div>
                 </div>
-                <span className="result-votes">{topVotes} of {totalVotes} votes</span>
-              </div>
-            )}
-
-            {!showResultHero && <LiveVoteBars tally={tally} />}
-            <div id="total" className="screen-total">{animatedTotal} votes cast</div>
+              ))}
+            </div>
           </div>
-        </div>
-      </div>
-    </div>
+        ) : (
+          <div className="vt-live">
+            <section className="vt-live__board">
+              <div className="vt-live__head">
+                <MetalText as="h1" className="ev-title">Best Singer — Live Vote</MetalText>
+                <div id="total" className="vt-total">
+                  <span className="ev-numeral vt-total__count"><AnimatedNumber value={totalVotes} /></span>
+                  <span className="ev-caption">votes cast</span>
+                </div>
+              </div>
+              <LiveVoteBars tally={tally} />
+            </section>
+
+            <aside className="vt-live__side">
+              {status?.isOpen ? (
+                <>
+                  <div className="vt-live__clock">
+                    <div className="ev-label">Voting closes in</div>
+                    <Countdown seconds={status.secondsRemaining ?? 0} />
+                  </div>
+                  <ScreenQr module="vote" label="Scan to vote" />
+                </>
+              ) : final ? (
+                <Countdown closed />
+              ) : (
+                <div className="vt-phase">{phase}</div>
+              )}
+            </aside>
+          </div>
+        )}
+      </main>
+    </Stage>
   );
 }

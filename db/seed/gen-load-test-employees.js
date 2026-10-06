@@ -14,10 +14,10 @@
 
 const count = Number(process.argv[2] ?? 800);
 
-console.log('emp_id,name,dept,nic');
+console.log('emp_id,name,nic,image_name');
 for (let n = 1; n <= count; n++) {
   const empId = 'LT' + String(n).padStart(4, '0');
   const last4 = String(1000 + n).slice(-4);
   const nic = '19900000' + last4; // 12-digit new-format NIC, last 4 digits = last4
-  console.log(`${empId},Load Test ${n},LoadTest,${nic}`);
+  console.log(`${empId},Load Test ${n},${nic},`);
 }

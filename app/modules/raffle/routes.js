@@ -1,6 +1,6 @@
 import { config } from '../../core/config.js';
 import { requireScreenAccess } from '../../core/screenAuth.js';
-import { subscribe } from '../../core/sse-hub.js';
+import { subscribe, sendTo } from '../../core/sse-hub.js';
 import { pages, sendPage } from '../../core/builtPages.js';
 import * as service from './service.js';
 
@@ -11,7 +11,7 @@ const credentialsSchema = {
     additionalProperties: false,
     properties: {
       empId: { type: 'string', minLength: 1, maxLength: 64 },
-      last4: { type: 'string', minLength: 1, maxLength: 8 },
+      last4: { type: 'string', minLength: 1, maxLength: 20 },
     },
   },
 };
@@ -55,10 +55,24 @@ export async function registerRaffleRoutes(app) {
   );
 
   app.get(
+    '/screen/raffle/progress',
+    { preHandler: requireScreenAccess(config.screenTokens.raffle) },
+    async () => service.getProgress()
+  );
+
+  app.get(
+    '/screen/raffle/entrants',
+    { preHandler: requireScreenAccess(config.screenTokens.raffle) },
+    async () => ({ names: await service.getEntrantNames() })
+  );
+
+  app.get(
     '/screen/raffle/stream',
     { preHandler: requireScreenAccess(config.screenTokens.raffle) },
     async (request, reply) => {
       subscribe('raffle', request, reply);
+      const snapshot = await service.getSnapshot();
+      sendTo(reply, 'snapshot', snapshot);
       return reply;
     }
   );

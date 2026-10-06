@@ -17,6 +17,7 @@ export function App() {
   const [finalistId, setFinalistId] = useState(null);
   const [message, setMessage] = useState(null); // { text, kind }
   const [done, setDone] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -42,17 +43,24 @@ export function App() {
   async function handleVerify(e) {
     e.preventDefault();
     setMessage(null);
-    const res = await fetch('/vote/api/verify', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ empId, last4 }),
-    });
-    const body = await res.json();
-    if (body.ok) {
-      setPending({ empId, last4, name: body.name, finalists: body.finalists });
-      setFinalistId(null);
-    } else {
-      setMessage({ text: body.message || 'Verification failed', kind: 'error' });
+    setSubmitting(true);
+    try {
+      const res = await fetch('/vote/api/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ empId, last4 }),
+      });
+      const body = await res.json();
+      if (body.ok) {
+        setPending({ empId, last4, name: body.name, finalists: body.finalists });
+        setFinalistId(null);
+      } else {
+        setMessage({ text: body.message || 'Verification failed', kind: 'error' });
+      }
+    } catch {
+      setMessage({ text: 'Could not reach the server. Check your connection and try again.', kind: 'error' });
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -60,18 +68,25 @@ export function App() {
     e.preventDefault();
     setMessage(null);
     if (!pending || finalistId == null) return;
-    const res = await fetch('/vote/api/cast', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ empId: pending.empId, last4: pending.last4, finalistId: Number(finalistId) }),
-    });
-    const body = await res.json();
-    if (body.ok) {
-      setMessage({ text: 'Vote recorded. Thank you!', kind: 'success' });
-      setDone(true);
-      setPending(null);
-    } else {
-      setMessage({ text: body.message || 'Voting failed', kind: 'error' });
+    setSubmitting(true);
+    try {
+      const res = await fetch('/vote/api/cast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ empId: pending.empId, last4: pending.last4, finalistId: Number(finalistId) }),
+      });
+      const body = await res.json();
+      if (body.ok) {
+        setMessage({ text: 'Vote recorded. Thank you!', kind: 'success' });
+        setDone(true);
+        setPending(null);
+      } else {
+        setMessage({ text: body.message || 'Voting failed', kind: 'error' });
+      }
+    } catch {
+      setMessage({ text: 'Could not reach the server. Check your connection and try again.', kind: 'error' });
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -116,18 +131,16 @@ export function App() {
             value={empId}
             onInput={(e) => setEmpId(e.currentTarget.value)}
           />
-          <label htmlFor="last4">Last 4 digits of NIC</label>
+          <label htmlFor="last4">Last 4 digits of NIC (or full NIC)</label>
           <input
             id="last4"
             required
             autoComplete="off"
             inputMode="numeric"
-            maxLength={4}
-            pattern="\d{4}"
             value={last4}
             onInput={(e) => setLast4(e.currentTarget.value)}
           />
-          <button type="submit">Check</button>
+          <button type="submit" disabled={submitting}>{submitting ? 'Checking…' : 'Check'}</button>
         </form>
       )}
 
@@ -150,7 +163,7 @@ export function App() {
               </label>
             ))}
           </div>
-          <button type="submit">Submit vote</button>
+          <button type="submit" disabled={submitting}>{submitting ? 'Submitting…' : 'Submit vote'}</button>
         </form>
       )}
 

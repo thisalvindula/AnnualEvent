@@ -111,6 +111,11 @@ not the VPS itself):
 
 ## 7. Print and test the QR posters
 
+Set `PUBLIC_BASE_URL` in `.env` (e.g. `https://event.yourcompany.com`, no
+trailing slash) and restart. The QR codes always encode this address, so they
+are identical every time. Then open the admin dashboard, **Event QR codes**,
+and download the Raffle and Voting PNGs. Only re-download if the domain changes.
+
 - Raffle QR → `https://event.yourcompany.com/raffle`
 - Voting QR → `https://event.yourcompany.com/vote`
 - Test-scan both from a phone on mobile data (not venue Wi-Fi) before

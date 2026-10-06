@@ -13,8 +13,7 @@ import {
   makeTestEmployees,
   seedEmployees,
   createAdmin,
-  normalGifts,
-  premiumGifts,
+  seedGifts,
   sleep,
   closeAllConnections,
 } from './helpers.js';
@@ -33,7 +32,7 @@ before(async () => {
   await seedEmployees(employees);
   await createAdmin('system_clear_test', 'correct-horse-battery', 'raffle_operator');
 
-  await raffle.setGifts([...normalGifts(10), ...premiumGifts(15)]);
+  await seedGifts();
   await raffle.open({ windowMinutes: 0.05 }); // 3 seconds
   await raffle.register({ empId: employees[0].empId, last4: employees[0].last4, ip: '1.1.1.1' });
   await sleep(3500);

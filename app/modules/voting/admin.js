@@ -1,5 +1,6 @@
 import { requireRole } from '../../core/auth/middleware.js';
 import { pages, sendPage } from '../../core/builtPages.js';
+import { config as appConfig } from '../../core/config.js';
 import * as service from './service.js';
 import * as repo from './repo.js';
 
@@ -23,6 +24,22 @@ const finalistsSchema = {
           },
         },
       },
+    },
+  },
+};
+
+const updateFinalistSchema = {
+  params: {
+    type: 'object',
+    properties: { id: { type: 'integer', minimum: 1, maximum: 2147483647 } },
+  },
+  body: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      name: { type: 'string', minLength: 1, maxLength: 200 },
+      song: { type: ['string', 'null'], maxLength: 200 },
+      empId: { type: ['string', 'null'], maxLength: 64 },
     },
   },
 };
@@ -61,12 +78,17 @@ export async function registerVotingAdminRoutes(app) {
     async (request, reply) => {
       const config = await repo.getConfig();
       const finalists = await repo.getFinalists();
-      const { totalVotes } = await service.getTally();
+      const { tally, totalVotes } = await service.getTally();
+      const { secondsRemaining } = await service.getStatus();
       return {
+        screenPath: `/screen/vote?token=${encodeURIComponent(appConfig.screenTokens.vote)}`,
         status: config.status,
         durationMinutes: config.duration_minutes,
+        // 0 while status is still 'open' means the timer has run out but nobody has pressed "close" yet.
+        secondsRemaining,
         finalistsConfigured: finalists.length === 5,
         finalists,
+        tally,
         totalVotes,
       };
     }
@@ -84,6 +106,19 @@ export async function registerVotingAdminRoutes(app) {
     async (request, reply) => {
       const result = await service.setFinalists(request.body.finalists);
       if (!result.ok) reply.code(400);
+      return result;
+    }
+  );
+
+  app.put(
+    '/admin/api/vote/finalists/:id',
+    { onRequest: app.csrfProtection, preHandler: requireRole('vote_operator'), schema: updateFinalistSchema },
+    async (request, reply) => {
+      const result = await service.updateFinalist(request.params.id, request.body, {
+        ip: request.ip,
+        by: request.adminSession.username,
+      });
+      reply.code(result.ok ? 200 : result.reason === 'not_found' ? 404 : 400);
       return result;
     }
   );

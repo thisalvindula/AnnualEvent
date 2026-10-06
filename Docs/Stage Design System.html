@@ -1,0 +1,1289 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Stage Design System</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;600;700;800;900&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+/* ==========================================================================
+   AMSAFE BRIDPORT — BIG SCREEN STAGE DESIGN SYSTEM
+   Tokens + shared primitives (.ev-) for the raffle (.rf-) and voting (.vt-)
+   big-screen React components. This file is the review/reference page;
+   .docs- classes below belong ONLY to this review page, never to the
+   portable component library.
+   ========================================================================== */
+
+:root {
+  color-scheme: dark;
+
+  /* ---- Navy scale -------------------------------------------------- */
+  --navy-950:#060b18;
+  --navy-900:#0a1428;
+  --navy-800:#102544;
+  --navy-700:#17335e;
+  --navy-600:#204378;
+  --navy-500:#2c5697;
+
+  /* ---- Electric accent (light colour) -------------------------------- */
+  --accent:#4f7fe0;
+  --accent-bright:#7fa6ff;
+
+  /* ---- Silver scale --------------------------------------------------- */
+  --silver-100:#eef1f6;
+  --silver-200:#dde3ec;
+  --silver-300:#c3cbda;
+  --silver-400:#9aa5ba;
+  --silver-500:#707d94;
+
+  /* ---- Gold: rare celebration accent ONLY. Single token pair so it can
+     be pulled out wholesale if the gold accent is ever dropped. -------- */
+  --gold:#e0b64c;
+  --gold-bright:#f5d888;
+
+  /* ---- Semantic status (countdown urgency, badges) -------------------- */
+  --success:#49d69b;
+  --warning:#f5b942;
+  --critical:#ef5a6f;
+
+  /* ---- Brand marks — Logo component ONLY. Never used as UI chrome. --- */
+  --brand-red:#ff0000;
+  --brand-red-deep:#c20000;
+  --brand-blue:#001f98;
+  --brand-blue-bright:#2c46c9;
+
+  /* ---- Type ------------------------------------------------------------
+     Two families total, per the venue constraint:
+     display = Big Shoulders Display (headlines, numerals, reveals)
+     body    = IBM Plex Sans (labels, captions, data, hashes)
+     Numeric alignment (countdown, hash groups, vote counts) uses
+     font-variant-numeric: tabular-nums on the body face instead of a
+     third monospace family. ------------------------------------------- */
+  --font-display: 'Big Shoulders Display', 'Arial Narrow', 'Helvetica Neue', system-ui, sans-serif;
+  --font-body: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
+  /* Type scale for a 1080p stage, viewed from 10–40m.
+     Minimums from the brief: body 28px+, key info 48px+, countdown 220px+,
+     winner name 110px+. */
+  --fs-caption: 28px;
+  --fs-body: 32px;
+  --fs-label: 36px;
+  --fs-subhead: 48px;
+  --fs-head: 64px;
+  --fs-display: 96px;
+  --fs-countdown: 220px;
+  --fs-winner: 120px;
+
+  /* ---- Spacing ---------------------------------------------------------- */
+  --space-1: 8px;
+  --space-2: 16px;
+  --space-3: 24px;
+  --space-4: 32px;
+  --space-5: 48px;
+  --space-6: 64px;
+  --space-7: 96px;
+  --space-8: 128px;
+
+  /* ---- Radius ------------------------------------------------------------ */
+  --radius-sm: 8px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --radius-xl: 32px;
+  --radius-pill: 999px;
+
+  /* ---- Motion ------------------------------------------------------------
+     Cinematic ease-out curves + a shared duration scale. */
+  --ease-out-expo: cubic-bezier(.16,1,.3,1);
+  --ease-out-back: cubic-bezier(.34,1.56,.64,1);
+  --ease-standard: cubic-bezier(.4,0,.2,1);
+  --dur-fast: 180ms;
+  --dur-med: 360ms;
+  --dur-slow: 720ms;
+  --dur-cinematic: 3000ms;
+
+  /* Projector overscan safe margin */
+  --safe-margin: 4.5%;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  background: var(--navy-950);
+  color: var(--silver-100);
+  font-family: var(--font-body);
+}
+
+/* ==========================================================================
+   ev- SHARED PRIMITIVES — portable, reused by both raffle and voting screens
+   ========================================================================== */
+
+/* ---- StageBackground -------------------------------------------------- */
+.ev-stage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  isolation: isolate;
+  background: radial-gradient(120% 90% at 50% -10%, var(--navy-700) 0%, var(--navy-900) 48%, var(--navy-950) 100%);
+}
+.ev-stage__beam {
+  position: absolute;
+  inset: -25%;
+  background:
+    conic-gradient(from 210deg at 28% 18%, transparent 0deg, rgba(127,166,255,.16) 36deg, transparent 92deg),
+    conic-gradient(from 20deg at 82% 8%, transparent 0deg, rgba(127,166,255,.10) 30deg, transparent 70deg);
+  mix-blend-mode: screen;
+  opacity: .65;
+  animation: ev-beam-drift 48s linear infinite;
+  will-change: transform;
+}
+.ev-stage--live .ev-stage__beam { opacity: .8; animation-duration: 34s; }
+.ev-stage--celebration .ev-stage__beam {
+  background:
+    conic-gradient(from 210deg at 28% 18%, transparent 0deg, rgba(245,216,136,.22) 36deg, transparent 92deg),
+    conic-gradient(from 20deg at 82% 8%, transparent 0deg, rgba(127,166,255,.14) 30deg, transparent 70deg);
+  opacity: .9;
+  animation-duration: 26s;
+}
+@keyframes ev-beam-drift { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+.ev-stage__grid {
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(rgba(197,210,235,.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(197,210,235,.05) 1px, transparent 1px);
+  background-size: 64px 64px;
+  -webkit-mask-image: radial-gradient(60% 60% at 50% 42%, #000, transparent 78%);
+  mask-image: radial-gradient(60% 60% at 50% 42%, #000, transparent 78%);
+}
+.ev-stage__particles { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
+.ev-stage__vignette {
+  position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(78% 68% at 50% 46%, transparent 52%, rgba(6,11,24,.78) 100%);
+}
+.ev-stage--celebration .ev-stage__vignette {
+  background: radial-gradient(78% 68% at 50% 46%, transparent 52%, rgba(24,16,4,.55) 100%);
+}
+.ev-stage__content { position: relative; z-index: 2; width: 100%; height: 100%; }
+
+/* ---- LiveBadge ----------------------------------------------------------- */
+.ev-badge {
+  display: inline-flex; align-items: center; gap: var(--space-2);
+  padding: 12px 28px;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(180deg, rgba(23,51,94,.75), rgba(10,20,40,.85));
+  border: 1px solid rgba(195,203,218,.22);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  font-family: var(--font-body); font-weight: 600; letter-spacing: .09em; text-transform: uppercase;
+  font-size: var(--fs-caption);
+  color: var(--silver-200);
+  white-space: nowrap;
+}
+.ev-badge__dot { width: 12px; height: 12px; border-radius: 50%; background: var(--silver-400); flex: none; }
+.ev-badge--live .ev-badge__dot { background: var(--accent-bright); animation: ev-pulse-dot 1.5s ease-in-out infinite; }
+.ev-badge--live { color: var(--silver-100); border-color: rgba(127,166,255,.45); }
+.ev-badge--drawing .ev-badge__dot { background: var(--gold-bright); animation: ev-pulse-dot .95s ease-in-out infinite; }
+.ev-badge--drawing { color: var(--gold-bright); border-color: rgba(224,182,76,.5); }
+.ev-badge--sealing .ev-badge__dot { background: var(--accent-bright); animation: ev-pulse-dot 2.2s ease-in-out infinite; }
+.ev-badge--final .ev-badge__dot { background: var(--gold); }
+.ev-badge--final { color: var(--gold-bright); border-color: rgba(224,182,76,.5); }
+.ev-badge--complete .ev-badge__dot { background: var(--silver-400); }
+.ev-badge--waiting .ev-badge__dot, .ev-badge--coming-up .ev-badge__dot { background: var(--silver-500); }
+@keyframes ev-pulse-dot {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.4); opacity: .55; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ev-badge__dot { animation: none !important; }
+}
+
+/* ---- Countdown ------------------------------------------------------------ */
+.ev-countdown {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-countdown);
+  line-height: 1;
+  color: var(--silver-100);
+  letter-spacing: .01em;
+  text-shadow: 0 0 50px rgba(79,127,224,.35);
+  display: inline-block;
+}
+.ev-countdown__seg { display: inline-block; animation: ev-tick .22s var(--ease-out-expo); }
+.ev-countdown--warning { color: var(--gold-bright); text-shadow: 0 0 60px rgba(224,182,76,.45); }
+.ev-countdown--critical {
+  color: #ffe3e3;
+  text-shadow: 0 0 70px rgba(239,90,111,.65);
+  animation: ev-countdown-pulse 1s ease-in-out infinite;
+}
+.ev-countdown--closed { color: var(--silver-500); text-shadow: none; font-size: var(--fs-head); text-transform: uppercase; letter-spacing: .08em; }
+@keyframes ev-tick { from { transform: translateY(-.08em) scale(1.06); opacity: .4; } to { transform: none; opacity: 1; } }
+@keyframes ev-countdown-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.045); } }
+@media (prefers-reduced-motion: reduce) {
+  .ev-countdown__seg { animation: none; }
+  .ev-countdown--critical { animation: none; }
+}
+
+/* ---- QrSlot ---------------------------------------------------------------- */
+.ev-qr { display: inline-flex; flex-direction: column; align-items: center; gap: var(--space-3); }
+.ev-qr__card {
+  position: relative;
+  width: 320px; height: 320px;
+  background: var(--silver-100);
+  border-radius: var(--radius-lg);
+  padding: 22px;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 0 0 1px rgba(255,255,255,.7), 0 24px 70px rgba(6,11,24,.55);
+}
+.ev-qr__frame {
+  position: absolute; inset: -8px;
+  border-radius: calc(var(--radius-lg) + 8px);
+  border: 2px solid var(--accent-bright);
+  opacity: .55;
+  animation: ev-qr-breathe 3.4s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes ev-qr-breathe { 0%, 100% { opacity: .45; } 50% { opacity: .85; } }
+.ev-qr__img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.ev-qr__placeholder { width: 100%; height: 100%; opacity: .3; color: var(--navy-700); }
+.ev-qr__label {
+  font-family: var(--font-display); font-weight: 700;
+  font-size: var(--fs-subhead); color: var(--silver-100);
+  text-transform: uppercase; letter-spacing: .04em;
+}
+.ev-qr__url { font-family: var(--font-body); font-size: var(--fs-body); color: var(--silver-300); }
+@media (prefers-reduced-motion: reduce) { .ev-qr__frame { animation: none; opacity: .65; } }
+
+/* ---- Avatar ------------------------------------------------------------- */
+.ev-avatar {
+  position: relative;
+  border-radius: 50%;
+  overflow: hidden;
+  display: inline-flex; align-items: center; justify-content: center;
+  flex: none;
+  background: linear-gradient(160deg, var(--navy-600), var(--navy-850, var(--navy-800)));
+  color: var(--silver-100);
+  font-family: var(--font-display); font-weight: 700;
+}
+.ev-avatar--sm { width: 64px; height: 64px; font-size: 24px; }
+.ev-avatar--md { width: 96px; height: 96px; font-size: 34px; }
+.ev-avatar--lg { width: 160px; height: 160px; font-size: 56px; }
+.ev-avatar--xl { width: 280px; height: 280px; font-size: 96px; }
+.ev-avatar__ring {
+  position: absolute; inset: 0; border-radius: 50%;
+  border: 6px solid var(--silver-300);
+  box-shadow: 0 0 0 2px rgba(6,11,24,.65), 0 0 42px rgba(159,171,196,.35);
+}
+.ev-avatar--premium .ev-avatar__ring {
+  border-color: var(--gold-bright);
+  box-shadow: 0 0 0 2px rgba(6,11,24,.65), 0 0 54px rgba(224,182,76,.55);
+}
+.ev-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* ---- AnimatedNumber -------------------------------------------------------- */
+.ev-num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; }
+
+/* ---- GlassPanel ------------------------------------------------------------ */
+.ev-glass {
+  position: relative;
+  background: linear-gradient(180deg, rgba(23,51,94,.55), rgba(10,20,40,.68));
+  border: 1px solid rgba(221,227,236,.16);
+  border-radius: var(--radius-lg);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 24px 70px rgba(6,11,24,.45);
+  padding: var(--space-4);
+}
+.ev-glass::before {
+  content: ''; position: absolute; inset: 0; border-radius: inherit; padding: 1px;
+  background: linear-gradient(135deg, rgba(255,255,255,.45), transparent 42%, transparent 58%, rgba(159,171,196,.28));
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* ---- MetalText -------------------------------------------------------------- */
+.ev-metal {
+  font-family: var(--font-display); font-weight: 700;
+  position: relative; display: inline-block;
+  background: linear-gradient(180deg, var(--silver-100) 0%, var(--silver-300) 42%, var(--silver-500) 54%, var(--silver-200) 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.ev-metal--gold { background: linear-gradient(180deg, var(--gold-bright) 0%, var(--gold) 50%, #fff2cf 100%); -webkit-background-clip: text; background-clip: text; }
+.ev-metal--sweep::after {
+  content: attr(data-text);
+  position: absolute; inset: 0;
+  background: linear-gradient(100deg, transparent 42%, rgba(255,255,255,.95) 50%, transparent 58%);
+  background-size: 260% 100%;
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  animation: ev-metal-sweep 4.5s linear infinite;
+}
+@keyframes ev-metal-sweep { 0% { background-position: 160% 0; } 100% { background-position: -100% 0; } }
+@media (prefers-reduced-motion: reduce) { .ev-metal--sweep::after { animation: none; display: none; } }
+
+/* ---- Confetti ----------------------------------------------------------------- */
+.ev-confetti-canvas { position: absolute; inset: 0; pointer-events: none; }
+
+/* ---- Logo ------------------------------------------------------------------- */
+.ev-logo { display: inline-block; width: var(--logo-size, 240px); line-height: 0; color: var(--silver-100); }
+.ev-logo__svg { width: 100%; height: auto; display: block; overflow: visible; }
+.ev-logo__glow { transition: opacity var(--dur-slow) var(--ease-standard); }
+.ev-logo--idle .ev-logo__glow { animation: ev-logo-breathe 4.2s ease-in-out infinite; }
+.ev-logo--static .ev-logo__glow { opacity: .55; }
+.ev-logo--intro .ev-logo__glow { opacity: 0; animation: ev-logo-glow-in var(--dur-slow) var(--ease-out-back) 2.5s forwards; }
+@keyframes ev-logo-breathe { 0%, 100% { opacity: .45; } 50% { opacity: .85; } }
+@keyframes ev-logo-glow-in { from { opacity: 0; } to { opacity: .6; } }
+
+.ev-logo__wipe { transform: translateX(-105%); }
+.ev-logo--intro .ev-logo__wipe { animation: ev-logo-wipe 2.6s var(--ease-out-expo) forwards; }
+.ev-logo--idle .ev-logo__wipe, .ev-logo--static .ev-logo__wipe { transform: translateX(0%); }
+@keyframes ev-logo-wipe { from { transform: translateX(-105%); } to { transform: translateX(0%); } }
+
+.ev-logo__sweepBar { transform: translateX(-140%); opacity: 0; }
+.ev-logo--intro .ev-logo__sweepBar { animation: ev-logo-sweep-once 1.1s var(--ease-standard) 2.2s both; }
+.ev-logo--idle .ev-logo__sweepBar { animation: ev-logo-sweep-loop 6s linear infinite; animation-delay: .6s; }
+@keyframes ev-logo-sweep-once {
+  0% { transform: translateX(-140%); opacity: 0; }
+  15% { opacity: .9; }
+  100% { transform: translateX(140%); opacity: 0; }
+}
+@keyframes ev-logo-sweep-loop {
+  0% { transform: translateX(-140%); opacity: 0; }
+  45% { opacity: .55; }
+  55% { opacity: .55; }
+  100% { transform: translateX(140%); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ev-logo__wipe { transform: translateX(0%) !important; animation: none !important; }
+  .ev-logo--intro .ev-logo__glow { animation: none !important; opacity: .55 !important; }
+  .ev-logo--intro { animation: ev-logo-fade-in .3s var(--ease-standard); }
+  .ev-logo__sweepBar { animation: none !important; opacity: 0 !important; }
+  .ev-logo--idle .ev-logo__glow { animation: none !important; opacity: .6 !important; }
+}
+@keyframes ev-logo-fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+/* ==========================================================================
+   docs- REVIEW PAGE CHROME — this page only, never ported.
+   ========================================================================== */
+/* The page itself scrolls normally; the stage backdrop is a fixed layer
+   behind it so StageBackground's own overflow:hidden/height:100% (correct
+   for a locked 16:9 stage tile) never clips a tall scrolling document. */
+html, body { height: auto; }
+.docs-page { position: relative; min-height: 100vh; }
+.docs-page__bg { position: fixed; inset: 0; z-index: 0; }
+.docs-shell { position: relative; z-index: 1; }
+.docs-shell { position: relative; padding: var(--space-6) var(--safe-margin) var(--space-8); max-width: 1680px; margin: 0 auto; }
+.docs-header { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-5); margin-bottom: var(--space-3); }
+.docs-title { font-family: var(--font-display); font-weight: 800; font-size: clamp(32px, 4vw, 52px); margin: 0; letter-spacing: .01em; }
+.docs-kicker { font-family: var(--font-body); text-transform: uppercase; letter-spacing: .18em; font-size: 14px; color: var(--silver-400); margin: 0 0 6px; }
+.docs-lede { font-family: var(--font-body); font-size: 17px; line-height: 1.6; color: var(--silver-300); max-width: 62ch; margin: var(--space-2) 0 0; }
+.docs-nav { position: sticky; top: 12px; z-index: 20; display: flex; flex-wrap: wrap; gap: 8px; margin: var(--space-5) 0 var(--space-7); padding: 10px; background: rgba(6,11,24,.7); backdrop-filter: blur(14px); border: 1px solid rgba(221,227,236,.12); border-radius: var(--radius-pill); }
+.docs-nav a { font-family: var(--font-body); font-size: 13px; font-weight: 600; color: var(--silver-300); text-decoration: none; padding: 8px 16px; border-radius: var(--radius-pill); letter-spacing: .02em; }
+.docs-nav a:hover { color: var(--silver-100); background: rgba(79,127,224,.16); }
+.docs-section { margin-bottom: var(--space-8); scroll-margin-top: 70px; }
+.docs-section__head { display: flex; align-items: baseline; gap: var(--space-3); margin-bottom: var(--space-4); border-bottom: 1px solid rgba(221,227,236,.14); padding-bottom: var(--space-2); }
+.docs-section__num { font-family: var(--font-display); font-size: 20px; color: var(--silver-500); }
+.docs-section__title { font-family: var(--font-display); font-weight: 700; font-size: 28px; margin: 0; }
+.docs-section__note { font-family: var(--font-body); font-size: 14px; color: var(--silver-400); margin: 0 0 var(--space-4); max-width: 70ch; line-height: 1.6; }
+.docs-grid { display: grid; gap: var(--space-3); }
+.docs-grid--colors { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
+.docs-swatch { border-radius: var(--radius-md); overflow: hidden; border: 1px solid rgba(221,227,236,.14); background: rgba(10,20,40,.5); }
+.docs-swatch__fill { height: 76px; }
+.docs-swatch__meta { padding: 10px 12px; font-family: var(--font-body); }
+.docs-swatch__name { font-size: 13px; font-weight: 600; color: var(--silver-100); display: block; }
+.docs-swatch__hex { font-size: 12px; color: var(--silver-400); font-variant-numeric: tabular-nums; }
+.docs-type-row { display: flex; align-items: baseline; gap: var(--space-4); padding: var(--space-3) 0; border-bottom: 1px dashed rgba(221,227,236,.12); }
+.docs-type-row__meta { width: 190px; flex: none; font-family: var(--font-body); font-size: 13px; color: var(--silver-400); }
+.docs-type-row__meta b { display: block; color: var(--silver-100); font-size: 14px; }
+.docs-tile { position: relative; border-radius: var(--radius-lg); overflow: hidden; border: 1px solid rgba(221,227,236,.14); aspect-ratio: 16/9; }
+.docs-tile__label { position: absolute; top: var(--space-2); left: var(--space-2); z-index: 5; font-family: var(--font-body); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--silver-300); background: rgba(6,11,24,.55); padding: 5px 10px; border-radius: var(--radius-pill); }
+.docs-tile__stack { display: flex; align-items: center; justify-content: center; height: 100%; gap: var(--space-3); flex-wrap: wrap; padding: var(--space-4); }
+.docs-tile-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: var(--space-3); }
+.docs-scale-row { display: flex; align-items: center; gap: var(--space-3); font-family: var(--font-body); font-size: 13px; color: var(--silver-400); }
+.docs-scale-bar { height: 14px; background: linear-gradient(90deg, var(--accent), var(--accent-bright)); border-radius: 4px; }
+.docs-btn { font-family: var(--font-body); font-weight: 600; font-size: 13px; letter-spacing: .03em; color: var(--navy-950); background: var(--silver-100); border: none; border-radius: var(--radius-pill); padding: 10px 20px; cursor: pointer; }
+.docs-btn:hover { background: #fff; }
+.docs-btn--ghost { background: transparent; color: var(--silver-200); border: 1px solid rgba(221,227,236,.3); }
+.docs-btn--ghost:hover { background: rgba(221,227,236,.1); }
+.docs-controls { display: flex; gap: 8px; flex-wrap: wrap; margin-top: var(--space-3); }
+.docs-badgerow { display: flex; gap: var(--space-2); flex-wrap: wrap; }
+.docs-ease-card { background: rgba(10,20,40,.5); border: 1px solid rgba(221,227,236,.14); border-radius: var(--radius-md); padding: var(--space-3); font-family: var(--font-body); }
+.docs-ease-card b { font-size: 13px; color: var(--silver-100); display: block; margin-bottom: 4px; }
+.docs-ease-card span { font-size: 12px; color: var(--silver-400); }
+.docs-ease-track { position: relative; height: 44px; margin-top: var(--space-2); background: rgba(255,255,255,.04); border-radius: 999px; }
+.docs-ease-dot { position: absolute; top: 6px; left: 6px; width: 32px; height: 32px; border-radius: 50%; background: radial-gradient(circle at 32% 30%, var(--accent-bright), var(--accent)); }
+.docs-hash { font-family: var(--font-body); font-variant-numeric: tabular-nums; font-size: 15px; letter-spacing: .04em; color: var(--silver-300); word-break: break-all; line-height: 1.9; }
+.docs-footer { font-family: var(--font-body); font-size: 13px; color: var(--silver-500); text-align: center; padding: var(--space-6) 0 var(--space-3); }
+.docs-two-col { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: var(--space-3); }
+@media (max-width: 640px) {
+  .docs-nav { position: static; }
+  .docs-type-row { flex-direction: column; gap: 6px; }
+  .docs-type-row__meta { width: auto; }
+}
+</style>
+
+<div id="root"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.24.7/babel.min.js"></script>
+
+<script type="text/babel" data-presets="react" data-type="module">
+const { useState, useEffect, useRef, useMemo, useCallback, useId } = React;
+
+/* ==========================================================================
+   LOGO — traced 1:1 from the supplied artwork as flat-filled vector paths
+   (potrace, alphamax 0.6 to keep the chamfered corners crisp). Two colour
+   groups only: the brand red ("AM" + the speed-stripe) and the brand blue
+   ("SAFE BRIDPORT"). No strokes, no gradients — the source has none.
+   ========================================================================== */
+const LOGO_RED_D = "M1490 1654 c-525 -454 -964 -834 -975 -845 l-19 -19 355 0 355 0 155 140 154 139 428 1 427 0 -5 -22 c-3 -13 -14 -68 -25 -123 -11 -55 -23 -108 -26 -117 l-5 -18 398 0 398 0 39 293 c22 160 41 300 44 309 l4 18 -646 2 -647 3 326 293 c179 160 325 286 325 279 0 -12 -72 -379 -85 -435 l-5 -22 372 2 373 3 62 450 c34 248 62 460 62 473 l1 22 -443 0 -443 0 -954 -826z M4243 2458 c-20 -25 -593 -917 -593 -923 0 -3 138 -4 307 -3 l306 3 150 233 c83 128 152 231 154 228 3 -3 -91 -330 -127 -438 l-9 -28 297 0 297 0 157 470 156 470 -543 0 -543 0 -9 -12z M5580 2008 c-239 -253 -436 -464 -438 -469 -2 -5 110 -9 255 -9 l259 0 243 237 243 237 -58 -90 c-31 -49 -95 -146 -140 -216 -46 -70 -88 -137 -94 -148 l-11 -20 334 0 335 0 294 458 c162 251 298 463 302 470 l7 12 -548 -1 -548 -1 -435 -460z M3370 1108 c-107 -166 -197 -305 -198 -310 -2 -5 135 -7 304 -6 l308 3 193 298 c106 164 193 302 193 308 l0 9 -302 0 -303 0 -195 -302z M4304 1113 c-49 -163 -90 -303 -92 -310 l-3 -13 351 0 351 0 305 302 c167 166 304 305 304 310 0 4 -113 8 -252 8 l-252 0 -22 -21 -23 -21 6 21 5 21 -294 0 -294 0 -90 -297z M5742 1383 c-17 -25 -356 -548 -376 -580 l-7 -13 335 0 334 0 192 295 c105 163 193 302 197 310 l5 15 -330 0 -331 0 -19 -27z M453 50 c-226 -21 -422 -40 -435 -43 -13 -2 6937 -5 15444 -6 l15467 -1 26 37 c14 21 25 41 25 45 0 5 -6776 8 -15057 7 l-15058 -1 -412 -38z";
+const LOGO_BLUE_D = "M8018 2520 c-394 -45 -660 -149 -860 -339 -145 -137 -238 -297 -238 -408 l0 -48 19 -31 c48 -79 176 -137 515 -235 133 -38 266 -82 296 -97 l55 -27 3 -25 c4 -34 -42 -101 -95 -140 -126 -93 -405 -121 -473 -48 -29 31 -25 74 15 156 l34 72 -364 0 -364 0 -41 -69 c-60 -104 -82 -159 -87 -228 -7 -78 0 -104 39 -148 63 -73 194 -115 416 -136 l125 -12 236 6 236 6 132 20 c397 60 662 182 859 394 111 119 183 258 184 351 l0 50 -21 42 -20 43 -52 34 c-87 58 -188 95 -511 187 -99 28 -201 62 -228 76 l-48 24 0 29 c0 15 13 46 30 69 55 77 169 122 304 122 100 0 151 -14 172 -46 l17 -24 -6 -36 c-3 -20 -15 -54 -27 -75 -11 -22 -20 -42 -20 -44 0 -3 159 -4 352 -3 l353 3 27 50 c48 86 70 157 71 220 l0 60 -16 31 c-38 73 -130 126 -282 160 l-70 16 -295 3 c-162 2 -330 -1 -372 -5z M26985 2489 c-344 -36 -643 -153 -916 -359 -287 -215 -539 -543 -635 -827 l-27 -78 0 -90 -1 -90 23 -50 c53 -119 167 -193 371 -241 l65 -16 216 -5 217 -5 103 12 c376 43 721 177 998 385 257 194 508 525 602 795 l23 65 0 105 1 105 -22 47 c-26 57 -92 124 -159 160 -67 36 -199 73 -309 87 -103 12 -431 12 -550 0z m190 -405 c123 -64 94 -235 -85 -502 -117 -175 -271 -317 -425 -393 -101 -49 -179 -69 -272 -69 -115 0 -184 38 -204 113 l-10 38 11 57 c28 135 158 348 305 501 128 133 246 212 380 254 73 23 92 26 181 23 l81 -2 38 -20z M9655 2019 c-286 -247 -529 -459 -540 -469 l-19 -20 335 0 336 0 265 239 265 239 -43 -217 c-24 -119 -46 -226 -49 -239 l-5 -22 372 2 373 3 62 455 c34 250 62 461 63 468 l0 12 -447 0 -448 0 -520 -451z M12002 2448 c-5 -7 -133 -205 -285 -439 -151 -234 -282 -438 -292 -453 l-17 -26 759 0 760 0 69 107 c38 59 70 110 72 115 2 4 -174 9 -392 10 l-395 3 109 168 109 167 419 0 419 0 111 174 c62 95 112 176 112 180 0 3 -348 6 -774 6 l-774 0 -10 -12z M13450 2004 c-162 -251 -296 -461 -298 -465 -2 -5 347 -9 777 -9 l780 0 77 117 c42 65 79 123 81 130 l5 13 -429 2 -430 3 97 150 96 150 467 5 467 5 106 165 c59 91 109 171 111 178 l5 12 -808 0 -809 0 -295 -456z M15779 1618 l-547 -843 687 -3 686 -3 122 11 c273 24 449 106 624 287 159 165 228 324 185 426 -25 62 -113 117 -206 129 l-25 4 105 33 c186 59 313 134 421 248 75 80 130 165 154 241 l17 53 -4 49 -5 49 -26 35 c-33 43 -110 81 -207 103 l-75 16 -680 4 -680 4 -546 -843z m1407 496 l39 -19 3 -27 c2 -17 -8 -49 -25 -80 -58 -106 -154 -174 -277 -197 -58 -11 -316 -16 -316 -6 0 2 52 84 116 181 l115 177 153 -5 152 -5 40 -19z m-391 -669 c24 -12 44 -30 49 -46 l9 -26 -25 -54 c-14 -30 -44 -75 -67 -101 l-42 -47 -69 -35 c-90 -45 -173 -57 -351 -54 l-145 3 125 193 125 194 175 -4 176 -3 40 -20z M18502 2433 c-40 -58 -1065 -1638 -1069 -1651 l-5 -12 358 2 359 3 195 303 195 303 180 -3 181 -3 28 -19 28 -18 -5 -45 -5 -45 -116 -235 c-64 -129 -116 -236 -116 -239 0 -2 161 -4 358 -4 l358 0 148 305 148 305 5 43 5 44 -16 31 c-21 40 -63 62 -132 69 -29 3 -52 9 -49 13 2 3 30 12 62 19 151 34 336 136 447 247 146 147 238 336 212 438 -10 39 -66 97 -114 118 -23 11 -75 26 -115 35 l-72 16 -716 4 -717 4 -20 -28z m904 -345 c50 -27 56 -65 24 -136 -24 -52 -108 -143 -164 -176 -22 -13 -66 -31 -96 -41 l-55 -17 -177 -5 c-98 -3 -178 -2 -178 2 0 5 57 96 127 202 l127 195 180 -4 181 -3 31 -17z M20215 1629 c-297 -458 -544 -838 -548 -845 l-8 -14 360 0 359 0 546 841 c300 462 546 842 546 845 0 2 -161 4 -357 4 l-358 0 -540 -831z M21179 1624 c-299 -461 -546 -842 -548 -847 -2 -5 280 -7 685 -4 l689 4 105 17 c281 44 535 144 743 293 279 201 570 595 639 865 l20 82 -4 66 c-14 194 -153 296 -463 341 l-80 11 -621 5 -620 5 -545 -838z m1379 421 c29 -9 68 -30 87 -46 l35 -31 10 -40 11 -39 -11 -56 c-23 -111 -129 -282 -250 -402 -119 -119 -257 -197 -428 -242 l-77 -21 -170 -5 -169 -6 19 29 c17 26 345 530 512 788 l64 99 157 -6 157 -5 53 -17z M23509 1623 c-299 -460 -545 -840 -547 -845 -2 -4 158 -8 355 -8 l358 0 175 269 174 269 371 4 370 4 97 26 c205 56 370 150 518 298 129 128 241 294 292 433 l28 78 0 56 0 57 -21 43 c-37 76 -130 123 -279 143 -41 5 -359 10 -711 10 l-637 0 -543 -837z m1366 452 c20 -8 39 -25 45 -39 l9 -25 -9 -32 c-13 -44 -85 -153 -126 -188 -93 -82 -182 -109 -388 -118 l-148 -6 56 87 c31 48 93 143 137 212 l81 124 154 0 155 0 34 -15z M28592 2433 c-40 -58 -1065 -1638 -1069 -1650 l-5 -13 358 2 359 3 195 303 195 303 180 -3 181 -3 28 -19 28 -18 -5 -45 -5 -45 -116 -235 c-64 -129 -116 -236 -116 -239 0 -2 161 -4 358 -4 l358 0 148 305 148 305 5 43 5 44 -16 31 c-21 40 -63 62 -132 69 -29 3 -52 9 -49 13 2 3 30 12 62 19 260 58 513 259 623 493 32 68 47 148 36 192 -10 39 -66 97 -114 118 -23 11 -75 26 -115 35 l-72 16 -716 4 -717 4 -20 -28z m904 -345 c71 -39 55 -121 -45 -230 -59 -64 -112 -98 -191 -123 l-55 -17 -177 -5 c-98 -3 -178 -2 -178 2 0 5 57 96 127 203 l126 194 181 -4 181 -3 31 -17z M30638 2363 c-35 -54 -95 -147 -135 -208 l-72 -110 272 -5 273 -5 -408 -628 c-224 -346 -408 -631 -408 -633 0 -2 161 -4 358 -4 l357 0 411 633 411 632 278 5 279 5 127 195 c70 107 128 201 128 208 l1 12 -904 0 -905 0 -63 -97z M8598 1104 c-194 -168 -354 -309 -356 -315 l-4 -9 349 0 348 0 155 140 155 140 431 0 431 0 -23 -117 c-13 -65 -26 -128 -29 -140 l-5 -23 395 0 395 0 4 23 c9 42 76 553 76 580 l0 27 -984 0 -985 0 -353 -306z M11271 1318 c-33 -51 -125 -194 -205 -318 l-145 -225 356 -3 357 -2 11 12 c22 24 395 609 395 618 l0 10 -354 0 -355 0 -60 -92z M13042 1368 c-52 -77 -382 -588 -382 -593 0 -3 366 -5 813 -5 l814 0 111 173 c62 96 112 177 112 180 0 4 -207 7 -460 7 -253 0 -460 2 -460 5 0 3 34 57 75 120 41 63 79 124 85 135 l11 20 -345 0 -345 0 -29 -42z";
+const LOGO_TRANSFORM = "translate(0,253) scale(0.1,-0.1)";
+const LOGO_VIEWBOX = {
+  lockup: "0 0 3251 253",
+  mono: "0 0 3251 253",
+  mark: "10 -10 750 273",
+};
+
+let logoUid = 0;
+function Logo({ variant = "lockup", state = "static", size, className = "", style }) {
+  const idRef = useRef(null);
+  if (idRef.current === null) { logoUid += 1; idRef.current = logoUid; }
+  const wipeMaskId = `ev-logo-wipe-${idRef.current}`;
+  const shapeMaskId = `ev-logo-shape-${idRef.current}`;
+  const vb = LOGO_VIEWBOX[variant] || LOGO_VIEWBOX.lockup;
+  const mono = variant === "mono";
+  const redFill = mono ? "currentColor" : "var(--brand-red)";
+  const blueFill = mono ? "currentColor" : "var(--brand-blue)";
+
+  return (
+    <span
+      className={`ev-logo ev-logo--${variant} ev-logo--${state} ${className}`}
+      style={{ ...(size ? { "--logo-size": `${size}px` } : null), ...style }}
+    >
+      <svg className="ev-logo__svg" viewBox={vb} role="img" aria-label="AmSafe Bridport">
+        <defs>
+          <mask id={wipeMaskId} maskUnits="userSpaceOnUse" x="-500" y="-500" width="4300" height="1300">
+            <rect className="ev-logo__wipe" x="-100" y="-500" width="4300" height="1300" fill="#fff" />
+          </mask>
+          <mask id={shapeMaskId} maskUnits="userSpaceOnUse" x="-500" y="-500" width="4300" height="1300">
+            <g transform={LOGO_TRANSFORM} fill="#fff">
+              <path d={LOGO_RED_D} />
+              <path d={LOGO_BLUE_D} />
+            </g>
+          </mask>
+          <linearGradient id={`sweepgrad-${idRef.current}`} x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="#fff" stopOpacity="0" />
+            <stop offset="50%" stopColor="#fff" stopOpacity=".95" />
+            <stop offset="100%" stopColor="#fff" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+
+        {/* soft glow behind the mark, opacity-only animation */}
+        <g className="ev-logo__glow" transform={LOGO_TRANSFORM} filter="none" opacity=".55">
+          <path d={LOGO_RED_D} fill={mono ? "currentColor" : "var(--brand-red)"} opacity=".8" />
+          <path d={LOGO_BLUE_D} fill={mono ? "currentColor" : "var(--brand-blue)"} opacity=".8" />
+        </g>
+
+        {/* solid ink, revealed left-to-right on intro via the wipe mask */}
+        <g mask={`url(#${wipeMaskId})`}>
+          <g transform={LOGO_TRANSFORM}>
+            <path d={LOGO_RED_D} fill={redFill} />
+            <path d={LOGO_BLUE_D} fill={blueFill} />
+          </g>
+        </g>
+
+        {/* light sweep, clipped to the letterform silhouette */}
+        <g mask={`url(#${shapeMaskId})`} style={{ mixBlendMode: "screen" }}>
+          <rect
+            className="ev-logo__sweepBar"
+            x="-1000" y="-500" width="900" height="1300"
+            fill={`url(#sweepgrad-${idRef.current})`}
+          />
+        </g>
+      </svg>
+    </span>
+  );
+}
+
+/* ==========================================================================
+   STAGE BACKGROUND
+   ========================================================================== */
+function StageBackground({ mood = "calm", children, className = "" }) {
+  const canvasRef = useRef(null);
+  const reduceMotion = usePrefersReducedMotion();
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    let raf = null;
+    let w = 0, h = 0, dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const COUNT = reduceMotion ? 0 : 110;
+    const palette = {
+      calm: ["#7fa6ff", "#c3cbda", "#4f7fe0"],
+      live: ["#7fa6ff", "#eef1f6", "#4f7fe0"],
+      celebration: ["#f5d888", "#7fa6ff", "#eef1f6"],
+    }[mood] || ["#7fa6ff"];
+
+    let particles = [];
+    function resize() {
+      const rect = canvas.parentElement.getBoundingClientRect();
+      w = rect.width; h = rect.height;
+      canvas.width = w * dpr; canvas.height = h * dpr;
+      canvas.style.width = w + "px"; canvas.style.height = h + "px";
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+    function seed() {
+      particles = Array.from({ length: COUNT }, () => ({
+        x: Math.random() * w,
+        y: Math.random() * h,
+        r: Math.random() * 1.6 + 0.4,
+        s: Math.random() * 0.12 + 0.02,
+        drift: (Math.random() - 0.5) * 0.06,
+        o: Math.random() * 0.5 + 0.15,
+        c: palette[Math.floor(Math.random() * palette.length)],
+      }));
+    }
+    resize(); seed();
+    const ro = new ResizeObserver(() => { resize(); });
+    ro.observe(canvas.parentElement);
+
+    function draw() {
+      ctx.clearRect(0, 0, w, h);
+      for (const p of particles) {
+        p.y -= p.s; p.x += p.drift;
+        if (p.y < -4) { p.y = h + 4; p.x = Math.random() * w; }
+        if (p.x < -4) p.x = w + 4; if (p.x > w + 4) p.x = -4;
+        ctx.globalAlpha = p.o;
+        ctx.fillStyle = p.c;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+      if (!reduceMotion) raf = requestAnimationFrame(draw);
+    }
+    draw();
+    return () => { if (raf) cancelAnimationFrame(raf); ro.disconnect(); };
+  }, [mood, reduceMotion]);
+
+  return (
+    <div className={`ev-stage ev-stage--${mood} ${className}`}>
+      <div className="ev-stage__beam" />
+      <div className="ev-stage__grid" />
+      <canvas ref={canvasRef} className="ev-stage__particles" />
+      <div className="ev-stage__vignette" />
+      <div className="ev-stage__content">{children}</div>
+    </div>
+  );
+}
+
+function usePrefersReducedMotion() {
+  const [reduced, setReduced] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    setReduced(mq.matches);
+    const handler = (e) => setReduced(e.matches);
+    mq.addEventListener ? mq.addEventListener("change", handler) : mq.addListener(handler);
+    return () => { mq.removeEventListener ? mq.removeEventListener("change", handler) : mq.removeListener(handler); };
+  }, []);
+  return reduced;
+}
+
+/* ==========================================================================
+   LIVE BADGE
+   ========================================================================== */
+const BADGE_LABEL = {
+  waiting: "Waiting",
+  "coming-up": "Coming up",
+  live: "LIVE",
+  drawing: "Drawing",
+  sealing: "Sealing",
+  final: "Final result",
+  complete: "Complete",
+};
+function LiveBadge({ state = "waiting", label }) {
+  return (
+    <span className={`ev-badge ev-badge--${state}`}>
+      <span className="ev-badge__dot" />
+      {label || BADGE_LABEL[state] || state}
+    </span>
+  );
+}
+
+/* ==========================================================================
+   COUNTDOWN
+   ========================================================================== */
+function formatClock(totalSeconds) {
+  const s = Math.max(0, Math.floor(totalSeconds));
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+  return `${m}:${String(r).padStart(2, "0")}`;
+}
+function Countdown({ seconds, closed = false }) {
+  if (closed) {
+    return <div className="ev-countdown ev-countdown--closed">Closed</div>;
+  }
+  const tier = seconds <= 10 ? "critical" : seconds <= 60 ? "warning" : "normal";
+  const text = formatClock(seconds);
+  return (
+    <div className={`ev-countdown ev-countdown--${tier}`}>
+      <span className="ev-countdown__seg" key={text}>{text}</span>
+    </div>
+  );
+}
+
+/* ==========================================================================
+   QR SLOT
+   ========================================================================== */
+function QrPlaceholderIcon() {
+  return (
+    <svg className="ev-qr__placeholder" viewBox="0 0 100 100" fill="currentColor">
+      <rect x="8" y="8" width="26" height="26" rx="3" fill="none" stroke="currentColor" strokeWidth="6" />
+      <rect x="66" y="8" width="26" height="26" rx="3" fill="none" stroke="currentColor" strokeWidth="6" />
+      <rect x="8" y="66" width="26" height="26" rx="3" fill="none" stroke="currentColor" strokeWidth="6" />
+      <rect x="17" y="17" width="8" height="8" />
+      <rect x="75" y="17" width="8" height="8" />
+      <rect x="17" y="75" width="8" height="8" />
+      <rect x="46" y="8" width="8" height="8" />
+      <rect x="46" y="24" width="8" height="8" />
+      <rect x="62" y="46" width="8" height="8" />
+      <rect x="78" y="46" width="8" height="8" />
+      <rect x="46" y="62" width="8" height="8" />
+      <rect x="46" y="78" width="8" height="8" />
+      <rect x="46" y="46" width="8" height="8" />
+    </svg>
+  );
+}
+function QrSlot({ dataUrl, label = "Scan to enter", url }) {
+  return (
+    <div className="ev-qr">
+      <div className="ev-qr__card">
+        <div className="ev-qr__frame" />
+        {dataUrl ? <img className="ev-qr__img" src={dataUrl} alt="QR code" /> : <QrPlaceholderIcon />}
+      </div>
+      <div className="ev-qr__label">{label}</div>
+      {url ? <div className="ev-qr__url">{url}</div> : null}
+    </div>
+  );
+}
+
+/* ==========================================================================
+   AVATAR
+   ========================================================================== */
+function initials(name) {
+  if (!name) return "?";
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+function Avatar({ name, imageUrl, size = "md", tier = "normal" }) {
+  return (
+    <span className={`ev-avatar ev-avatar--${size} ${tier === "premium" ? "ev-avatar--premium" : ""}`}>
+      {imageUrl ? <img src={imageUrl} alt={name || ""} /> : <span aria-hidden="true">{initials(name)}</span>}
+      <span className="ev-avatar__ring" />
+    </span>
+  );
+}
+
+/* ==========================================================================
+   ANIMATED NUMBER
+   ========================================================================== */
+function easeOutExpo(t) { return t === 1 ? 1 : 1 - Math.pow(2, -10 * t); }
+function AnimatedNumber({ value, duration = 700, format }) {
+  const [display, setDisplay] = useState(value);
+  const fromRef = useRef(value);
+  const rafRef = useRef(null);
+
+  useEffect(() => {
+    const from = fromRef.current;
+    const to = value;
+    if (from === to) return;
+    const start = performance.now();
+    function step(now) {
+      const t = Math.min(1, (now - start) / duration);
+      const eased = easeOutExpo(t);
+      setDisplay(Math.round(from + (to - from) * eased));
+      if (t < 1) { rafRef.current = requestAnimationFrame(step); }
+      else { fromRef.current = to; }
+    }
+    rafRef.current = requestAnimationFrame(step);
+    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
+  }, [value, duration]);
+
+  const text = format ? format(display) : display.toLocaleString();
+  return <span className="ev-num">{text}</span>;
+}
+
+/* ==========================================================================
+   GLASS PANEL
+   ========================================================================== */
+function GlassPanel({ children, className = "", style }) {
+  return <div className={`ev-glass ${className}`} style={style}>{children}</div>;
+}
+
+/* ==========================================================================
+   METAL TEXT
+   ========================================================================== */
+function MetalText({ children, tone = "silver", sweep = false, as: Tag = "span", className = "" }) {
+  return (
+    <Tag
+      className={`ev-metal ${tone === "gold" ? "ev-metal--gold" : ""} ${sweep ? "ev-metal--sweep" : ""} ${className}`}
+      data-text={typeof children === "string" ? children : undefined}
+    >
+      {children}
+    </Tag>
+  );
+}
+
+/* ==========================================================================
+   CONFETTI
+   ========================================================================== */
+function Confetti({ colors = ["#7fa6ff", "#eef1f6", "#4f7fe0"], originX = 0.5, burstKey, count = 70 }) {
+  const canvasRef = useRef(null);
+  const particlesRef = useRef([]);
+  const rafRef = useRef(null);
+  const reduceMotion = usePrefersReducedMotion();
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    let dpr = Math.min(window.devicePixelRatio || 1, 2);
+    let w = 0, h = 0;
+    function resize() {
+      const rect = canvas.parentElement.getBoundingClientRect();
+      w = rect.width; h = rect.height;
+      canvas.width = w * dpr; canvas.height = h * dpr;
+      canvas.style.width = w + "px"; canvas.style.height = h + "px";
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+    resize();
+    const ro = new ResizeObserver(resize);
+    ro.observe(canvas.parentElement);
+    return () => ro.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (burstKey === undefined || burstKey === null || reduceMotion) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    const rect = canvas.parentElement.getBoundingClientRect();
+    const w = rect.width, h = rect.height;
+    const n = Math.min(count, 150);
+    const originPx = w * originX;
+    const fresh = Array.from({ length: n }, () => ({
+      x: originPx, y: h * 0.12,
+      vx: (Math.random() - 0.5) * 9,
+      vy: -(Math.random() * 7 + 5),
+      g: 0.28 + Math.random() * 0.08,
+      rot: Math.random() * Math.PI,
+      vr: (Math.random() - 0.5) * 0.3,
+      w: 6 + Math.random() * 7,
+      h: 4 + Math.random() * 6,
+      c: colors[Math.floor(Math.random() * colors.length)],
+      life: 0, maxLife: 90 + Math.random() * 40,
+    }));
+    particlesRef.current = particlesRef.current.concat(fresh).slice(-150);
+
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    function step() {
+      const dpr2 = Math.min(window.devicePixelRatio || 1, 2);
+      ctx.save();
+      ctx.setTransform(dpr2, 0, 0, dpr2, 0, 0);
+      ctx.clearRect(0, 0, w, h);
+      let alive = false;
+      for (const p of particlesRef.current) {
+        p.life += 1;
+        if (p.life > p.maxLife) continue;
+        alive = true;
+        p.x += p.vx; p.y += p.vy; p.vy += p.g; p.rot += p.vr;
+        const fade = 1 - Math.max(0, (p.life - p.maxLife * 0.7) / (p.maxLife * 0.3));
+        ctx.globalAlpha = Math.max(0, Math.min(1, fade));
+        ctx.fillStyle = p.c;
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rot);
+        ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+        ctx.restore();
+      }
+      ctx.globalAlpha = 1;
+      ctx.restore();
+      particlesRef.current = particlesRef.current.filter((p) => p.life <= p.maxLife);
+      if (alive) rafRef.current = requestAnimationFrame(step);
+    }
+    rafRef.current = requestAnimationFrame(step);
+    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [burstKey]);
+
+  return <canvas ref={canvasRef} className="ev-confetti-canvas" aria-hidden="true" />;
+}
+
+/* ==========================================================================
+   Small icons used only on this reference page
+   ========================================================================== */
+function IconLock(props) {
+  return (
+    <svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" strokeWidth="1.8" {...props}>
+      <rect x="4" y="10.5" width="16" height="10" rx="2" />
+      <path d="M7.5 10.5V7.5a4.5 4.5 0 0 1 9 0v3" />
+    </svg>
+  );
+}
+
+/* ==========================================================================
+   REFERENCE DATA — this review page only
+   ========================================================================== */
+const COLOR_GROUPS = [
+  { title: "Navy — backgrounds", items: [
+    ["--navy-950", "#060b18"], ["--navy-900", "#0a1428"], ["--navy-800", "#102544"],
+    ["--navy-700", "#17335e"], ["--navy-600", "#204378"], ["--navy-500", "#2c5697"],
+  ]},
+  { title: "Accent — the light colour", items: [["--accent", "#4f7fe0"], ["--accent-bright", "#7fa6ff"]] },
+  { title: "Silver — headings, frames, highlights", items: [
+    ["--silver-100", "#eef1f6"], ["--silver-200", "#dde3ec"], ["--silver-300", "#c3cbda"],
+    ["--silver-400", "#9aa5ba"], ["--silver-500", "#707d94"],
+  ]},
+  { title: "Gold — rare celebration accent only", items: [["--gold", "#e0b64c"], ["--gold-bright", "#f5d888"]] },
+  { title: "Semantic status", items: [["--success", "#49d69b"], ["--warning", "#f5b942"], ["--critical", "#ef5a6f"]] },
+  { title: "Brand marks — Logo component only", items: [
+    ["--brand-red", "#ff0000"], ["--brand-red-deep", "#c20000"],
+    ["--brand-blue", "#001f98"], ["--brand-blue-bright", "#2c46c9"],
+  ]},
+];
+const TYPE_SCALE = [
+  ["--fs-caption", "28px", "The floor — never go smaller than this on stage"],
+  ["--fs-body", "32px", "Body copy, the URL under a QR"],
+  ["--fs-label", "36px", "Labels, small caps under an avatar"],
+  ["--fs-subhead", "48px", "Key information — badge text, QR call to action"],
+  ["--fs-head", "64px", "Section headings on stage"],
+  ["--fs-display", "96px", "Prize descriptions, leaderboard names"],
+  ["--fs-countdown", "220px", "The countdown clock"],
+  ["--fs-winner", "120px", "Winner name on the reveal"],
+];
+const SPACING = [["--space-1", 8], ["--space-2", 16], ["--space-3", 24], ["--space-4", 32], ["--space-5", 48], ["--space-6", 64], ["--space-7", 96], ["--space-8", 128]];
+const RADIUS = [["--radius-sm", 8], ["--radius-md", 16], ["--radius-lg", 24], ["--radius-xl", 32], ["--radius-pill", 999]];
+const EASING = [
+  ["--ease-out-expo", "cubic-bezier(.16,1,.3,1)", "Reveals, entrances, anything arriving"],
+  ["--ease-out-back", "cubic-bezier(.34,1.56,.64,1)", "The settle after a reveal — a little overshoot"],
+  ["--ease-standard", "cubic-bezier(.4,0,.2,1)", "General UI motion, state changes"],
+];
+const DURATIONS = [["--dur-fast", "180ms"], ["--dur-med", "360ms"], ["--dur-slow", "720ms"], ["--dur-cinematic", "3000ms"]];
+
+const NAV_ITEMS = [
+  ["colour", "Colour"], ["type", "Type"], ["spacing", "Spacing"], ["motion", "Motion"],
+  ["background", "Background"], ["badge", "Badge"], ["countdown", "Countdown"], ["qr", "QR"],
+  ["avatar", "Avatar"], ["number", "Number"], ["glass", "Glass"], ["metal", "Metal"],
+  ["confetti", "Confetti"], ["logo", "Logo"],
+];
+
+/* Deterministic pseudo-random module grid, standing in for a real QR image
+   in this demo only — the raffle/voting screens receive a real dataUrl. */
+function PseudoQrArt() {
+  const cells = useMemo(() => {
+    let seed = 1337;
+    const rnd = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return (seed / 0x7fffffff); };
+    const arr = [];
+    for (let y = 0; y < 21; y++) for (let x = 0; x < 21; x++) {
+      const finder = (x < 7 && y < 7) || (x > 13 && y < 7) || (x < 7 && y > 13);
+      arr.push(finder ? ((x % 6 < 4 && y % 6 < 4) ? 1 : ((x + y) % 5 === 0 ? 1 : 0)) : (rnd() > 0.56 ? 1 : 0));
+    }
+    return arr;
+  }, []);
+  return (
+    <svg viewBox="0 0 21 21" width="100%" height="100%">
+      {cells.map((v, i) => v ? <rect key={i} x={i % 21} y={Math.floor(i / 21)} width="1" height="1" fill="var(--navy-900)" /> : null)}
+    </svg>
+  );
+}
+
+function SectionHead({ n, title }) {
+  return (
+    <div className="docs-section__head">
+      <span className="docs-section__num">{n}</span>
+      <h2 className="docs-section__title">{title}</h2>
+    </div>
+  );
+}
+
+function ColorSection() {
+  return (
+    <section id="colour" className="docs-section">
+      <SectionHead n="01" title="Colour tokens" />
+      <p className="docs-section__note">Deep navy carries the room; brushed silver does the talking. Gold is rationed to one moment — winners and finales — so it still reads as a reward when it shows up. Brand red/blue exist only inside the Logo component.</p>
+      {COLOR_GROUPS.map((g) => (
+        <div key={g.title} style={{ marginBottom: "var(--space-4)" }}>
+          <div className="docs-type-row__meta" style={{ marginBottom: 8 }}><b>{g.title}</b></div>
+          <div className="docs-grid docs-grid--colors">
+            {g.items.map(([name, hex]) => (
+              <div key={name} className="docs-swatch">
+                <div className="docs-swatch__fill" style={{ background: hex }} />
+                <div className="docs-swatch__meta">
+                  <span className="docs-swatch__name">{name}</span>
+                  <span className="docs-swatch__hex">{hex}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </section>
+  );
+}
+
+function TypeSection() {
+  return (
+    <section id="type" className="docs-section">
+      <SectionHead n="02" title="Type scale" />
+      <p className="docs-section__note">Two families, self-hosted: <b>Big Shoulders Display</b> for anything shouted from the stage — headlines, numerals, winner names — and <b>IBM Plex Sans</b> for everything read up close — labels, captions, the sealed hash. Numeric columns use tabular figures instead of a third monospace family.</p>
+      {TYPE_SCALE.map(([name, px, use]) => (
+        <div key={name} className="docs-type-row">
+          <div className="docs-type-row__meta"><b>{name}</b>{px} · {use}</div>
+          <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: `min(${px}, 15vw)`, lineHeight: 1, color: "var(--silver-100)" }}>Aa 08:15</div>
+        </div>
+      ))}
+    </section>
+  );
+}
+
+function SpacingSection() {
+  return (
+    <section id="spacing" className="docs-section">
+      <SectionHead n="03" title="Spacing &amp; radius" />
+      <div className="docs-two-col">
+        <div>
+          <div className="docs-type-row__meta" style={{ marginBottom: 8 }}><b>Spacing scale</b></div>
+          {SPACING.map(([name, px]) => (
+            <div key={name} className="docs-scale-row" style={{ marginBottom: 8 }}>
+              <span style={{ width: 100, flex: "none" }}>{name}</span>
+              <span style={{ width: 46, flex: "none" }}>{px}px</span>
+              <span className="docs-scale-bar" style={{ width: px }} />
+            </div>
+          ))}
+        </div>
+        <div>
+          <div className="docs-type-row__meta" style={{ marginBottom: 8 }}><b>Radius scale</b></div>
+          <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+            {RADIUS.map(([name, px]) => (
+              <div key={name} style={{ textAlign: "center" }}>
+                <div style={{ width: 72, height: 72, background: "linear-gradient(160deg, var(--navy-600), var(--navy-800))", border: "1px solid rgba(221,227,236,.25)", borderRadius: Math.min(px, 36) }} />
+                <div className="docs-type-row__meta" style={{ marginTop: 6 }}>{name}<br />{px}px</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function MotionSection() {
+  return (
+    <section id="motion" className="docs-section">
+      <SectionHead n="04" title="Motion tokens" />
+      <p className="docs-section__note">Ease-out curves throughout: things arrive with intent and settle with a touch of overshoot. Hover any track to preview the curve.</p>
+      <div className="docs-tile-grid">
+        {EASING.map(([name, curve, use]) => (
+          <div key={name} className="docs-ease-card">
+            <b>{name}</b>
+            <span>{curve}</span><br /><span>{use}</span>
+            <div className="docs-ease-track">
+              <div className="docs-ease-dot" style={{ animation: `ev-ease-demo-${name.replace(/[^a-z]/g, "")} 1.8s ${curve} infinite` }} />
+            </div>
+            <style>{`@keyframes ev-ease-demo-${name.replace(/[^a-z]/g, "")} { 0%,100%{ left:6px; } 50%{ left: calc(100% - 38px); } }`}</style>
+          </div>
+        ))}
+      </div>
+      <div className="docs-badgerow" style={{ marginTop: "var(--space-3)" }}>
+        {DURATIONS.map(([name, val]) => (
+          <span key={name} className="ev-badge"><span className="ev-badge__dot" />{name} · {val}</span>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function BackgroundSection() {
+  return (
+    <section id="background" className="docs-section">
+      <SectionHead n="05" title="StageBackground" />
+      <p className="docs-section__note">Navy gradient, a slow rotating light sweep, a faint particle drift (canvas, capped at 150 points) and a vignette to keep the edges dark. <code>mood</code> shifts calm → live → celebration, warming toward gold at the top.</p>
+      <div className="docs-tile-grid">
+        {["calm", "live", "celebration"].map((m) => (
+          <div key={m} className="docs-tile">
+            <span className="docs-tile__label">mood: {m}</span>
+            <StageBackground mood={m}>
+              <div className="docs-tile__stack">
+                <MetalText tone={m === "celebration" ? "gold" : "silver"} sweep style={{ fontSize: 34 }}>{m}</MetalText>
+              </div>
+            </StageBackground>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function BadgeSection() {
+  const states = ["waiting", "coming-up", "live", "drawing", "sealing", "final", "complete"];
+  return (
+    <section id="badge" className="docs-section">
+      <SectionHead n="06" title="LiveBadge" />
+      <div className="docs-tile" style={{ aspectRatio: "16/6" }}>
+        <StageBackground mood="live">
+          <div className="docs-tile__stack">
+            {states.map((s) => <LiveBadge key={s} state={s} />)}
+          </div>
+        </StageBackground>
+      </div>
+    </section>
+  );
+}
+
+function CountdownSection() {
+  const [seconds, setSeconds] = useState(75);
+  const [running, setRunning] = useState(false);
+  useEffect(() => {
+    if (!running) return;
+    const t = setInterval(() => setSeconds((s) => (s <= 0 ? 15 : s - 1)), 1000);
+    return () => clearInterval(t);
+  }, [running]);
+  return (
+    <section id="countdown" className="docs-section">
+      <SectionHead n="07" title="Countdown" />
+      <div className="docs-tile" style={{ aspectRatio: "16/7" }}>
+        <StageBackground mood={seconds <= 10 ? "celebration" : "live"}>
+          <div className="docs-tile__stack">
+            <Countdown seconds={seconds} />
+          </div>
+        </StageBackground>
+      </div>
+      <div className="docs-controls">
+        <button className="docs-btn" onClick={() => setRunning((r) => !r)}>{running ? "Pause" : "Run demo countdown"}</button>
+        <button className="docs-btn docs-btn--ghost" onClick={() => setSeconds(75)}>Normal (75s)</button>
+        <button className="docs-btn docs-btn--ghost" onClick={() => setSeconds(45)}>Warning (≤60s)</button>
+        <button className="docs-btn docs-btn--ghost" onClick={() => setSeconds(8)}>Critical (≤10s)</button>
+        <button className="docs-btn docs-btn--ghost" onClick={() => setSeconds(-1)}>Closed</button>
+      </div>
+    </section>
+  );
+}
+
+function QrSection() {
+  const [filled, setFilled] = useState(false);
+  return (
+    <section id="qr" className="docs-section">
+      <SectionHead n="08" title="QrSlot" />
+      <p className="docs-section__note">The one deliberate white area on the whole system — a QR needs a bright quiet zone to scan reliably from a phone in a dark ballroom. The module art below is placeholder-only, generated for this preview; the real screen receives a genuine <code>dataUrl</code>.</p>
+      <div className="docs-tile" style={{ aspectRatio: "16/8" }}>
+        <StageBackground mood="live">
+          <div className="docs-tile__stack">
+            <QrSlot dataUrl={filled ? "demo" : null} url="raffle.amsafebridport.party" label="Scan to enter" />
+          </div>
+        </StageBackground>
+      </div>
+      <div className="docs-controls">
+        <button className="docs-btn docs-btn--ghost" onClick={() => setFilled((f) => !f)}>{filled ? "Show empty placeholder" : "Show filled (demo art)"}</button>
+      </div>
+    </section>
+  );
+}
+
+function AvatarSection() {
+  return (
+    <section id="avatar" className="docs-section">
+      <SectionHead n="09" title="Avatar" />
+      <div className="docs-tile" style={{ aspectRatio: "16/6" }}>
+        <StageBackground mood="calm">
+          <div className="docs-tile__stack" style={{ alignItems: "flex-end" }}>
+            <Avatar name="P. Silva" size="sm" />
+            <Avatar name="Anoma K" size="md" />
+            <Avatar name="Ruwan Jayasuriya" size="lg" />
+            <Avatar name="Kaveesha Wanninayakage Don" size="xl" tier="premium" />
+          </div>
+        </StageBackground>
+      </div>
+      <p className="docs-section__note">Sizes sm / md / lg / xl. No photo → initials on a navy gradient. Ring is silver by default, gold for a premium (single-winner) moment.</p>
+    </section>
+  );
+}
+
+function AnimatedNumberSection() {
+  const [val, setVal] = useState(0);
+  return (
+    <section id="number" className="docs-section">
+      <SectionHead n="10" title="AnimatedNumber" />
+      <div className="docs-tile" style={{ aspectRatio: "16/6" }}>
+        <StageBackground mood="live">
+          <div className="docs-tile__stack">
+            <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 96, color: "var(--silver-100)" }}>
+              <AnimatedNumber value={val} />
+            </div>
+          </div>
+        </StageBackground>
+      </div>
+      <div className="docs-controls">
+        <button className="docs-btn" onClick={() => setVal((v) => v + Math.ceil(Math.random() * 30) + 5)}>+entries</button>
+        <button className="docs-btn docs-btn--ghost" onClick={() => setVal(0)}>Reset</button>
+      </div>
+    </section>
+  );
+}
+
+function GlassSection() {
+  return (
+    <section id="glass" className="docs-section">
+      <SectionHead n="11" title="GlassPanel" />
+      <div className="docs-tile" style={{ aspectRatio: "16/7" }}>
+        <StageBackground mood="calm">
+          <div className="docs-tile__stack">
+            <GlassPanel style={{ width: 420 }}>
+              <div style={{ fontFamily: "var(--font-body)", fontSize: 13, letterSpacing: ".1em", textTransform: "uppercase", color: "var(--silver-400)", marginBottom: 6 }}>Prize progress</div>
+              <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 44, color: "var(--silver-100)" }}>7 of 30 awarded</div>
+            </GlassPanel>
+          </div>
+        </StageBackground>
+      </div>
+    </section>
+  );
+}
+
+function MetalSection() {
+  return (
+    <section id="metal" className="docs-section">
+      <SectionHead n="12" title="MetalText" />
+      <div className="docs-tile" style={{ aspectRatio: "16/6" }}>
+        <StageBackground mood="calm">
+          <div className="docs-tile__stack" style={{ flexDirection: "column", gap: 8 }}>
+            <MetalText style={{ fontSize: 56 }}>Annual Get-Together</MetalText>
+            <MetalText tone="gold" sweep style={{ fontSize: 56 }}>Grand Finale</MetalText>
+          </div>
+        </StageBackground>
+      </div>
+    </section>
+  );
+}
+
+function ConfettiSection() {
+  const [burst, setBurst] = useState(0);
+  return (
+    <section id="confetti" className="docs-section">
+      <SectionHead n="13" title="Confetti" />
+      <div className="docs-tile" style={{ aspectRatio: "16/7", position: "relative" }}>
+        <StageBackground mood="celebration">
+          <div className="docs-tile__stack">
+            <MetalText tone="gold" style={{ fontSize: 40 }}>All 30 prizes awarded</MetalText>
+          </div>
+        </StageBackground>
+        <Confetti burstKey={burst ? `l${burst}` : null} originX={0.15} colors={["#e0b64c", "#f5d888", "#eef1f6", "#7fa6ff"]} />
+        <Confetti burstKey={burst ? `r${burst}` : null} originX={0.85} colors={["#e0b64c", "#f5d888", "#eef1f6", "#7fa6ff"]} />
+      </div>
+      <div className="docs-controls">
+        <button className="docs-btn" onClick={() => setBurst((b) => b + 1)}>Fire twin burst</button>
+      </div>
+    </section>
+  );
+}
+
+function LogoCell({ variant, state, label }) {
+  const [replayKey, setReplayKey] = useState(0);
+  return (
+    <div className="docs-tile" style={{ aspectRatio: variant === "mark" ? "1/1" : "16/6" }}>
+      <span className="docs-tile__label">{label}</span>
+      <StageBackground mood="calm">
+        <div className="docs-tile__stack">
+          <Logo key={replayKey} variant={variant} state={state} size={variant === "mark" ? 120 : 320} />
+        </div>
+      </StageBackground>
+      {state === "intro" && (
+        <button
+          className="docs-btn docs-btn--ghost"
+          style={{ position: "absolute", bottom: 10, right: 10, zIndex: 6 }}
+          onClick={() => setReplayKey((k) => k + 1)}
+        >Replay</button>
+      )}
+    </div>
+  );
+}
+function LogoSection() {
+  return (
+    <section id="logo" className="docs-section">
+      <SectionHead n="14" title="Logo" />
+      <p className="docs-section__note">
+        Traced 1:1 from the supplied artwork as flat vector paths — no raster, no font dependency. <code>lockup</code> is the full wordmark; <code>mono</code> is the same artwork in a single silver ink for on-glass placement; <code>mark</code> is a crop of the real artwork around the red "AM" (the brand has no separate icon, so this is not an invented symbol — just the authentic mark at compact size). States are controlled by the consumer: mount with <code>state="intro"</code>, then switch the prop to <code>"idle"</code> after ~2.8s.
+      </p>
+      <div className="docs-tile-grid">
+        <LogoCell variant="lockup" state="intro" label="lockup · intro" />
+        <LogoCell variant="lockup" state="idle" label="lockup · idle" />
+        <LogoCell variant="lockup" state="static" label="lockup · static" />
+        <LogoCell variant="mono" state="idle" label="mono · idle" />
+        <LogoCell variant="mark" state="idle" label="mark · idle" />
+        <LogoCell variant="mark" state="static" label="mark · static" />
+      </div>
+    </section>
+  );
+}
+
+/* ==========================================================================
+   PAGE
+   ========================================================================== */
+function HeroLogo() {
+  const [state, setState] = useState("intro");
+  const [replayKey, setReplayKey] = useState(0);
+  useEffect(() => {
+    const t = setTimeout(() => setState("idle"), 2800);
+    return () => clearTimeout(t);
+  }, [replayKey]);
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+      <Logo key={replayKey} variant="lockup" state={state} size={280} />
+    </div>
+  );
+}
+
+function DesignSystemPage() {
+  return (
+    <div className="docs-page">
+      <div className="docs-page__bg"><StageBackground mood="calm" /></div>
+      <div className="docs-shell">
+          <div className="docs-header">
+            <HeroLogo />
+            <div>
+              <p className="docs-kicker">AmSafe Bridport · Annual Get-Together 2026</p>
+              <h1 className="docs-title">Big-Screen Stage Design System</h1>
+              <p className="docs-lede">Tokens, motion and the shared primitives for the raffle and voting big screens: navy and brushed silver, gold rationed to the moments that earn it, built to survive a projector across a dark ballroom for hours.</p>
+            </div>
+          </div>
+
+          <nav className="docs-nav">
+            {NAV_ITEMS.map(([id, label]) => <a key={id} href={`#${id}`}>{label}</a>)}
+          </nav>
+
+          <ColorSection />
+          <TypeSection />
+          <SpacingSection />
+          <MotionSection />
+          <BackgroundSection />
+          <BadgeSection />
+          <CountdownSection />
+          <QrSection />
+          <AvatarSection />
+          <AnimatedNumberSection />
+          <GlassSection />
+          <MetalSection />
+          <ConfettiSection />
+          <LogoSection />
+
+          <div className="docs-footer">AmSafe Bridport — stage design system · built for a 1920×1080 projector, scales to any resolution</div>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<DesignSystemPage />);
+</script>
+
+</body></html>

@@ -1,2 +1,140 @@
-@import '../../shared/theme.css';
-@import '../../shared/screen-theme.css';
+/* Raffle big screen (/screen/raffle) — .rf- layouts on the stage design
+   system (shared/stage/stage.css). Authored for the 1920x1080 canvas. */
+@import '../../shared/stage/stage.css';
+@import '../../shared/stage/rank-frame.css';
+
+.rf-phase {
+  font-size: var(--fs-subhead);
+  color: var(--silver-300);
+  line-height: 1.2;
+}
+
+/* ---------- registration open: info + countdown left, QR right ---------- */
+.rf-open {
+  flex: 1;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--space-7);
+}
+.rf-open__info { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-3); min-width: 0; }
+.rf-open__clock { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-1); }
+.rf-open__clock .ev-countdown { margin-left: -.03em; }
+.rf-entries { display: flex; align-items: baseline; gap: var(--space-3); }
+.rf-entries__count { font-size: var(--fs-display); }
+.rf-open .ev-qr { flex: none; }
+
+/* ---------- draw view ---------- */
+/* ---------- draw view: drawing panel (left) + gift board (right) ---------- */
+.rf-draw { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.rf-draw__body { flex: 1; min-height: 0; display: flex; align-items: stretch; gap: var(--space-5); }
+.rf-side { flex: none; width: 640px; display: flex; flex-direction: column; justify-content: center; gap: var(--space-4); }
+.rf-draw__logo { flex: none; display: flex; justify-content: center; }
+
+.rf-headline { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.rf-headline .ev-title { margin: 0; }
+.rf-seal__line { display: flex; align-items: center; gap: var(--space-1); font-size: var(--fs-caption); color: var(--silver-300); letter-spacing: .06em; text-transform: uppercase; }
+.rf-seal__lock { color: var(--gold-bright); font-size: 1.15em; }
+
+.rf-panel-col { flex: none; width: 100%; display: flex; flex-direction: column; align-items: center; gap: var(--space-3); }
+.rf-stage-area { width: 100%; height: 330px; display: flex; align-items: center; justify-content: center; }
+.rf-idle { animation: ev-fade-in 600ms var(--ease-out-expo) both; display: flex; flex-direction: column; align-items: center; gap: var(--space-1); text-align: center; }
+.rf-idle__title { font-family: var(--font-display); font-weight: 800; font-size: var(--fs-subhead); color: var(--silver-200); line-height: 1.1; }
+.rf-idle__sub { font-size: var(--fs-caption); color: var(--silver-400); letter-spacing: .04em; }
+
+/* name reel: three names visible (small/shaded, large, small/shaded); the column rolls up one slot per step */
+.rf-reel {
+  animation: rf-reel-in 500ms var(--ease-out-expo) both;
+  position: relative; width: 100%; height: 100%;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 24%, #000 76%, transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 24%, #000 76%, transparent 100%);
+}
+.rf-reel__item {
+  --row: 100px;
+  position: absolute; left: 0; right: 0; top: 50%; height: var(--row); margin-top: calc(var(--row) / -2);
+  display: flex; align-items: center; justify-content: center;
+  padding: 0 var(--space-2); box-sizing: border-box;
+  font-family: var(--font-display); font-weight: 800; font-size: 80px; line-height: 1;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center;
+  color: var(--silver-100);
+  transform: translateY(calc(var(--o) * 80px)) scale(.58);
+  opacity: 0; filter: blur(1.5px);
+  transition: transform var(--step) ease-out, opacity var(--step) ease-out, filter var(--step) ease-out, color var(--dur-med) var(--ease-standard);
+}
+.rf-reel__item--0 { transform: translateY(0) scale(1); opacity: 1; filter: none; text-shadow: 0 0 32px rgba(127, 166, 255, .35); }
+.rf-reel__item--1 { opacity: .45; color: var(--silver-400); }
+/* hairlines framing the selected (middle) name, like a drum window */
+.rf-reel::before, .rf-reel::after {
+  content: ''; position: absolute; left: 12%; right: 12%; height: 2px; z-index: 1; pointer-events: none;
+  background: linear-gradient(to right, transparent, rgba(127, 166, 255, .55), transparent);
+}
+.rf-reel::before { top: calc(50% - 58px); }
+.rf-reel::after { top: calc(50% + 58px); }
+.rf-reel__item--landed { animation: ev-pop-in var(--dur-slow) var(--ease-out-back) both; }
+.rf-reel__item--landed.rf-reel__item--premium { color: var(--gold-bright); text-shadow: 0 0 36px rgba(224, 182, 76, .5); }
+@media (prefers-reduced-motion: reduce) { .rf-reel__item--landed { animation: none; } }
+
+/* winner card: between the drawing column and the gift board */
+.rf-card-slot { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; }
+.rf-card {
+  width: 100%; box-sizing: border-box; padding: var(--space-3) var(--space-2);
+  display: flex; flex-direction: column; align-items: center; gap: var(--space-1); text-align: center;
+  will-change: transform, opacity;
+}
+.rf-card--premium { border-color: rgba(245, 216, 136, .45); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08), 0 24px 70px rgba(6, 11, 24, .45), 0 0 90px rgba(224, 182, 76, .22); }
+.rf-card .ev-avatar { width: 200px; height: 200px; font-size: 70px; }
+.rf-card__name { font-family: var(--font-display); font-weight: 800; font-size: 44px; line-height: 1.05; padding-bottom: .06em; text-wrap: balance; }
+.rf-card__gift { font-family: var(--font-display); font-weight: 700; font-size: 30px; line-height: 1.1; color: var(--silver-100); }
+.rf-card--premium .rf-card__gift { color: var(--gold-bright); }
+
+/* decorative "Draw" button under the panel; pressed by the cursor when a draw starts */
+.rf-drawbtn { position: relative; display: flex; align-items: center; justify-content: center; }
+.rf-trigger__button {
+  font-family: var(--font-display); font-weight: 800;
+  font-size: var(--fs-label); letter-spacing: .1em; text-transform: uppercase;
+  color: var(--silver-100);
+  padding: 18px 64px;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(180deg, rgba(23, 51, 94, .75), rgba(10, 20, 40, .85));
+  border: 2px solid var(--accent-bright);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08), 0 16px 40px rgba(6, 11, 24, .45), 0 0 0 0 rgba(127, 166, 255, .5);
+}
+.rf-trigger__button--press { animation: rf-trigger-ripple 180ms ease-out 540ms both; }
+@keyframes rf-trigger-ripple {
+  0% { box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08), 0 16px 40px rgba(6, 11, 24, .45), 0 0 0 0 rgba(127, 166, 255, .5); }
+  60% { box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08), 0 16px 40px rgba(6, 11, 24, .45), 0 0 0 16px rgba(127, 166, 255, 0); }
+  100% { box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08), 0 16px 40px rgba(6, 11, 24, .45), 0 0 0 0 rgba(127, 166, 255, 0); }
+}
+.rf-trigger__cursor {
+  position: absolute; width: 64px; height: 64px;
+  left: 56%; top: 34%;
+  color: var(--silver-100);
+  filter: drop-shadow(0 8px 16px rgba(6, 11, 24, .6));
+  transform: translate(140px, 110px) scale(1.2);
+  opacity: 0;
+  animation: rf-cursor-move 500ms var(--ease-out-expo) 60ms forwards, rf-cursor-press 180ms ease-out 540ms;
+}
+@keyframes rf-cursor-move {
+  0% { transform: translate(140px, 110px) scale(1.2); opacity: 0; }
+  55% { opacity: 1; }
+  100% { transform: translate(0, 0) scale(1); opacity: 1; }
+}
+@keyframes rf-cursor-press {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(.8); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rf-trigger__button--press, .rf-trigger__cursor { animation: none; }
+}
+
+/* gift board: 2·1·3 on top, ranks 4+ in widening rows, consolation 5 per row — spread over the full height */
+/* hugs the right margin (same 86px as the title's left margin); rows stay centred on each other */
+.rf-board { flex: none; width: fit-content; margin-left: auto; align-self: stretch; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; }
+.rf-top { display: flex; align-items: flex-start; justify-content: center; gap: var(--space-5); }
+.rf-top__side { padding-top: 40px; }
+.rf-row { display: flex; justify-content: center; gap: var(--space-2); }
+.rf-board .rf-frame--xl { --rf-size: 200px; }
+.rf-board .rf-frame--lg { --rf-size: 170px; }
+.rf-board .rf-frame--sm { --rf-size: 128px; }
+.rf-board .rf-frame--xs { --rf-size: 128px; }
+
+@keyframes rf-reel-in { from { opacity: 0; transform: scale(.94); } to { opacity: 1; transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .rf-reel, .rf-idle { animation: none; } }

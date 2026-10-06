@@ -11,7 +11,7 @@ const verifySchema = {
     additionalProperties: false,
     properties: {
       empId: { type: 'string', minLength: 1, maxLength: 64 },
-      last4: { type: 'string', minLength: 1, maxLength: 8 },
+      last4: { type: 'string', minLength: 1, maxLength: 20 },
     },
   },
 };
@@ -23,7 +23,7 @@ const castSchema = {
     additionalProperties: false,
     properties: {
       empId: { type: 'string', minLength: 1, maxLength: 64 },
-      last4: { type: 'string', minLength: 1, maxLength: 8 },
+      last4: { type: 'string', minLength: 1, maxLength: 20 },
       finalistId: { type: 'integer' },
     },
   },

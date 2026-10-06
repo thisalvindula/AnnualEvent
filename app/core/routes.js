@@ -4,8 +4,16 @@ import { verifyPassword } from './auth/passwords.js';
 import { issueSession, clearSession } from './auth/session.js';
 import { requireRole } from './auth/middleware.js';
 import { pages, sendPage } from './builtPages.js';
-import { parseEmployeeCsv, importEmployees, listEmployees } from './employees/index.js';
+import {
+  parseEmployeeCsv,
+  importEmployees,
+  listEmployees,
+  createEmployee,
+  updateEmployee,
+  deleteEmployee,
+} from './employees/index.js';
 import * as systemService from './system/service.js';
+import { config } from './config.js';
 
 const clearDatabaseSchema = {
   body: {
@@ -17,6 +25,45 @@ const clearDatabaseSchema = {
     },
   },
 };
+
+const EMPLOYEE_EDITORS = ['raffle_operator', 'vote_operator'];
+
+const createEmployeeSchema = {
+  body: {
+    type: 'object',
+    required: ['empId', 'name', 'nic'],
+    additionalProperties: false,
+    properties: {
+      empId: { type: 'string', minLength: 1, maxLength: 64 },
+      name: { type: 'string', minLength: 1, maxLength: 200 },
+      nic: { type: 'string', minLength: 1, maxLength: 20 },
+      imageName: { type: ['string', 'null'], maxLength: 200 },
+    },
+  },
+};
+
+const updateEmployeeSchema = {
+  params: {
+    type: 'object',
+    properties: { empId: { type: 'string', minLength: 1, maxLength: 64 } },
+  },
+  body: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      name: { type: 'string', minLength: 1, maxLength: 200 },
+      nic: { type: 'string', maxLength: 20 },
+      imageName: { type: ['string', 'null'], maxLength: 200 },
+    },
+  },
+};
+
+function employeeResultStatus(result) {
+  if (result.ok) return 200;
+  if (result.reason === 'not_found') return 404;
+  if (result.reason === 'exists' || result.reason === 'in_use') return 409;
+  return 400;
+}
 
 export async function registerCoreRoutes(app) {
   app.get('/admin/login', async (request, reply) => {
@@ -30,6 +77,9 @@ export async function registerCoreRoutes(app) {
     const csrfToken = await reply.generateCsrf();
     return { csrfToken };
   });
+
+  // Public, non-secret: the fixed base URL the event QR codes encode.
+  app.get('/api/public-config', async () => ({ publicBaseUrl: config.publicBaseUrl || null }));
 
   app.get('/admin/api/me', { preHandler: requireRole() }, async (request, reply) => {
     const { username, role } = request.adminSession;
@@ -99,13 +149,13 @@ export async function registerCoreRoutes(app) {
     '/admin/api/employees/import',
     {
       onRequest: app.csrfProtection,
-      preHandler: requireRole('raffle_operator', 'vote_operator'),
+      preHandler: requireRole(...EMPLOYEE_EDITORS),
     },
     async (request, reply) => {
       const csvText = typeof request.body === 'string' ? request.body : '';
       if (!csvText.trim()) {
         reply.code(400);
-        return { message: 'Request body must be CSV text with header emp_id,name,dept,nic' };
+        return { message: 'Request body must be CSV text with header emp_id,name,nic,image_name' };
       }
 
       const { valid, errors: parseErrors } = parseEmployeeCsv(csvText);
@@ -122,6 +172,47 @@ export async function registerCoreRoutes(app) {
         imported,
         errors: [...parseErrors, ...importErrors],
       };
+    }
+  );
+
+  app.post(
+    '/admin/api/employees',
+    { onRequest: app.csrfProtection, preHandler: requireRole(...EMPLOYEE_EDITORS), schema: createEmployeeSchema },
+    async (request, reply) => {
+      const result = await createEmployee({
+        ...request.body,
+        ip: request.ip,
+        by: request.adminSession.username,
+      });
+      reply.code(result.ok ? 201 : employeeResultStatus(result));
+      return result;
+    }
+  );
+
+  app.put(
+    '/admin/api/employees/:empId',
+    { onRequest: app.csrfProtection, preHandler: requireRole(...EMPLOYEE_EDITORS), schema: updateEmployeeSchema },
+    async (request, reply) => {
+      const result = await updateEmployee(request.params.empId, {
+        ...request.body,
+        ip: request.ip,
+        by: request.adminSession.username,
+      });
+      reply.code(employeeResultStatus(result));
+      return result;
+    }
+  );
+
+  app.delete(
+    '/admin/api/employees/:empId',
+    { onRequest: app.csrfProtection, preHandler: requireRole(...EMPLOYEE_EDITORS) },
+    async (request, reply) => {
+      const result = await deleteEmployee(request.params.empId, {
+        ip: request.ip,
+        by: request.adminSession.username,
+      });
+      reply.code(employeeResultStatus(result));
+      return result;
     }
   );
 

@@ -8,7 +8,7 @@
 
 An organization of about 800 employees holds an annual event. Two live features are needed, delivered as **one web application** with **two fully isolated modules**:
 
-1. **Raffle draw**: employees register by scanning a QR code during a timed window, then 25 winners are drawn live on stage.
+1. **Raffle draw**: employees register by scanning a QR code during a timed window, then the winners for every configured gift are drawn live on stage.
 2. **Singing competition voting**: employees vote for 1 of 5 finalists by scanning a different QR code during a timed window, with live vote counts on the big screen.
 
 Both involve company money or reputation, so **transparency, auditability and tamper resistance** are core requirements.
@@ -35,7 +35,8 @@ Both involve company money or reputation, so **transparency, auditability and ta
 | Identity check | Employee number + **last 4 NIC digits**, for both modules (rule in 9.2) |
 | Gift collection | Not tracked by the app. No "collected" status, column or button |
 | Raffle window | 15 minutes by default, configurable by admin |
-| Raffle gifts | 25 total: 15 premium, 10 normal |
+| Raffle gifts | An admin-editable list, each row: gift id, place (e.g. "1st place"), quantity (number of winners), description (e.g. "Cash 100000"). Any number of gifts; ids, places, quantities and descriptions can be changed at any time (winners already drawn are protected, see 9.3). Draw order is ascending gift id |
+| Employee records | Employee ID, name, NIC and photo image name. No department. The last 4 NIC digits are kept hashed (used for verification); the full NIC is also kept encrypted so admins can see it on the Lists page and correct a wrong one. Admins can add, edit and delete employees (and bulk-import a CSV) |
 | Raffle draw | Live on stage, secure random, without replacement, one win per person |
 | Absent winners | **Not an issue.** An absent winner is still a winner and collects the gift later. No redraw logic |
 | Voting eligibility | Employees only, one vote each |
@@ -126,7 +127,8 @@ Route naming rule: employee-facing = `/<module>`, employee API = `/<module>/api/
 | `GET /api/health` | Uptime check |
 | `GET /admin` | Admin dashboard showing the status of both modules |
 | `GET /admin/login`, `POST /admin/login`, `POST /admin/logout` | Operator authentication |
-| `POST /admin/api/employees/import` | Upload the employee master list (ID, name, department, full NIC, from which only the last 4 digits are extracted and hashed) |
+| `POST /admin/api/employees/import` | Upload the employee master list as CSV `emp_id,name,nic,image_name` (full NIC: the last 4 digits are hashed for verification and the full NIC is stored encrypted; `image_name` is optional) |
+| `POST /admin/api/employees`, `PUT /admin/api/employees/:empId`, `DELETE /admin/api/employees/:empId` | Add, edit (name, NIC, image name) or delete a single employee. `GET /admin/api/employees` returns each employee's decrypted `nic` (null if none stored). Correcting a NIC also clears that employee's wrong-attempt lockout. Delete is refused if the employee already has a raffle entry, vote or finalist link |
 | `GET /admin/api/audit/export` | Full audit log CSV (auditor role) |
 
 ### 7.2 Raffle module (raffle QR points to `/raffle`)
@@ -140,7 +142,7 @@ Route naming rule: employee-facing = `/<module>`, employee API = `/<module>/api/
 | `GET /screen/raffle?token=...` | Big screen: countdown, entry count, draw animation |
 | `GET /screen/raffle/stream` | SSE channel for that screen only |
 | `GET /admin/raffle` | Raffle admin UI |
-| `POST /admin/api/raffle/config` | Set open time, window length (default 15 min), gift list (15 premium + 10 normal) |
+| `POST /admin/api/raffle/gifts`, `PUT /admin/api/raffle/gifts/:id`, `DELETE /admin/api/raffle/gifts/:id` | Add, edit or delete a gift (`id`, `place`, `quantity`, `description`). `GET /admin/api/raffle/gifts` lists them |
 | `POST /admin/api/raffle/open`, `POST /admin/api/raffle/close` | Manual open and close |
 | `GET /admin/api/raffle/registrations/export` | Registrations CSV + entry count + SHA-256 of the file |
 | `POST /admin/api/raffle/draw/next` | Draws the next winner (see 9.3) |
@@ -158,6 +160,7 @@ Route naming rule: employee-facing = `/<module>`, employee API = `/<module>/api/
 | `GET /screen/vote/stream` | SSE channel for that screen only |
 | `GET /admin/vote` | Voting admin UI |
 | `POST /admin/api/vote/finalists` | Set the 5 finalists (name, song, display order). **Locked once voting has started** |
+| `PUT /admin/api/vote/finalists/:id` | Edit one finalist's name, song or linked employee ID in place (used by the admin Lists page). Same lock: refused once voting has started |
 | `POST /admin/api/vote/config` | Set voting duration (default 15 min, any value) |
 | `POST /admin/api/vote/start`, `POST /admin/api/vote/close` | Start voting; close early |
 | `GET /admin/api/vote/results/export` | Votes CSV (with employee IDs) + final tally + SHA-256 of the tally (auditor role) |
@@ -171,8 +174,9 @@ Duplicate prevention **must be enforced by the database** (primary key or unique
 CREATE TABLE employees (
   emp_id         text PRIMARY KEY,
   name           text NOT NULL,
-  dept           text,
-  nic_last4_hash text NOT NULL          -- salted/peppered hash, never plain text
+  image_name     text,                  -- photo file name in employee-photos/, e.g. E001.jpg
+  nic_last4_hash text NOT NULL,         -- salted/peppered hash, never plain text; the only value verification uses
+  nic_encrypted  text                   -- full NIC, AES-256-GCM (key derived from NIC_PEPPER); admin display only, NULL if not stored
 );
 
 CREATE TABLE admin_users (
@@ -202,10 +206,10 @@ CREATE TABLE raffle_config (
 );
 
 CREATE TABLE raffle_gifts (
-  id    serial PRIMARY KEY,
-  name  text NOT NULL,
-  tier  text NOT NULL CHECK (tier IN ('normal','premium')),
-  seq   int UNIQUE NOT NULL              -- draw order: normal gifts first, premium last
+  id          int PRIMARY KEY,           -- admin-chosen; draw order is ascending id
+  place       text NOT NULL,             -- e.g. '1st place', 'Consolation Prize'
+  quantity    int NOT NULL DEFAULT 1 CHECK (quantity >= 1),   -- number of winners
+  description text NOT NULL              -- e.g. 'Cash 100000'
 );
 
 CREATE TABLE raffle_registrations (
@@ -217,9 +221,11 @@ CREATE TABLE raffle_registrations (
 );
 
 CREATE TABLE raffle_draw_results (
-  seq          int PRIMARY KEY REFERENCES raffle_gifts(seq),
+  gift_id      int NOT NULL REFERENCES raffle_gifts(id) ON UPDATE CASCADE,
+  slot         int NOT NULL CHECK (slot >= 1),        -- 1..quantity within the gift
   emp_id       text UNIQUE NOT NULL REFERENCES raffle_registrations(emp_id),  -- wins once
-  drawn_at     timestamptz NOT NULL DEFAULT now()
+  drawn_at     timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (gift_id, slot)
 );
 
 -- VOTING
@@ -271,7 +277,7 @@ RETURNING emp_id;
   - New format: 12 digits, e.g. `199604303149` gives `3149`. Take the last 4 digits.
   - Implement this in one function, `core/nic.js`, used **both** when importing the employee list and when verifying, so the two can never differ.
   - Normalization: trim spaces and uppercase the letter. Accept only `^\d{9}[VX]$` or `^\d{12}$`. Reject anything else at import and list the bad rows in the import result instead of silently skipping them.
-  - The voter types just the 4 digits. Validate that the input is exactly 4 digits.
+  - The voter normally types just the 4 digits. If they type a full NIC by mistake (old or new format), the server extracts the last 4 the same way and it works. Anything else is rejected with the generic failure.
 - One step: `verify` takes employee number and last 4 NIC digits together. **Show the employee name only after both match.** Never return a name for an employee number alone (prevents enumeration of colleagues' names).
 - Compare against the stored salted/peppered hash using a constant-time comparison.
 - Rate-limit per IP and per employee ID. After 3 wrong NIC attempts, lock that employee ID for a few minutes. Log every failed attempt in `audit_log`.
@@ -279,10 +285,10 @@ RETURNING emp_id;
 - Free-text names are **not** allowed. The name always comes from the employee list.
 
 ### 9.3 Raffle draw
-- Admin clicks "Draw next" (one gift at a time). The server picks the winner, saves it, then pushes it to `/screen/raffle`.
+- Admin clicks "Draw next" (one winner at a time; a gift with quantity 3 takes three clicks). The server picks the winner, saves it, then pushes it to `/screen/raffle`.
 - Use a cryptographically secure generator (`crypto.randomInt`). **Never `Math.random`.**
 - Draw without replacement among registered employees who have not already won. The `UNIQUE` constraint on `emp_id` is the backstop.
-- Order: normal gifts first, premium gifts last.
+- Order: ascending gift id; each gift is drawn `quantity` times before the next. The gift list stays editable at any time, but a gift with winners can't be deleted or have its quantity cut below the winners already drawn.
 - After registration closes, export the registrations CSV, compute its SHA-256 and show the entry count and hash on the big screen **before** the first draw, so the list cannot be altered afterwards.
 - No absent-winner or redraw logic (see section 3).
 
@@ -308,7 +314,7 @@ RETURNING emp_id;
 - VPS: SSH keys only, firewall open only on ports 22, 80, 443.
 - Admin: argon2 passwords, session cookies (`HttpOnly`, `Secure`, `SameSite=Lax`), role checks on every admin route, CSRF protection for admin POSTs.
 - Send security headers (helmet). Strict input validation (JSON schema on every route).
-- NIC data: store **only a salted/peppered hash** of the last 4 digits. Delete or anonymize these hashes after the event. This is personal data; the owner should confirm handling with their legal/HR team.
+- NIC data: verification uses **only a salted/peppered hash** of the last 4 digits. The full NIC is additionally stored **encrypted** (never plain text) so admins can see and correct it; it is shown to logged-in admins only. Delete or anonymize the hashes **and** the encrypted NICs after the event. This is personal data; the owner should confirm handling with their legal/HR team.
 - Vote traceability: `vote_votes` links employee ID to choice (owner's decision, for audit). Only the `auditor` role can export the file that contains employee IDs. The big screen and operators see aggregates only. Employees should be told beforehand that votes are recorded for audit.
 - Employee pages: no heavy images or scripts. Poster text: "Use mobile data".
 
@@ -353,7 +359,7 @@ RETURNING emp_id;
 1. Confirm the employee list, gift list and finalists are loaded. Take a backup.
 2. Open raffle registration. It closes automatically after the window (default 15 min).
 3. Export the registrations, show the entry count and SHA-256 on the raffle screen.
-4. Run the live draw on stage: normal gifts first, premium last.
+4. Run the live draw on stage: gifts in ascending id order.
 5. Set duration and start voting. Watch live counts on the voting screen. It closes automatically or manually.
 6. Export the votes CSV and the tally hash. Announce the result.
 7. Take backups, export all logs, archive them, and delete the NIC hashes.
@@ -373,7 +379,7 @@ Work in this order and stop at the end of each phase for review:
 
 - One app, one database. `modules/raffle` and `modules/voting` do not import each other.
 - Raffle: an employee registers once; a second attempt shows "You are already registered"; registration is impossible outside the server-defined window.
-- Raffle: 25 unique winners are drawn live (10 normal first, 15 premium last), nobody wins twice, the list hash is shown before the draw.
+- Raffle: unique winners are drawn live for every configured gift (ascending gift id, `quantity` winners each), nobody wins twice, the list hash is shown before the draw.
 - Voting: an employee votes once for one of the 5 finalists; the first vote is final; phones never show counts; the big screen shows live counts.
 - Voting: the duration is configurable (default 15 min); after close no votes are accepted; the tally hash is exported.
 - Wrong NIC and unknown employee return the same response shape; repeated failures are rate-limited and logged.

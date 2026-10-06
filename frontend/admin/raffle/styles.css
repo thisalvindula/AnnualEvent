@@ -1,4 +1,6 @@
 @import '../../shared/theme.css';
+@import '../../shared/admin-tables.css';
+@import '../../shared/workflow.css';
 
 body {
   background: var(--silver-100);

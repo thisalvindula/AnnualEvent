@@ -1,5 +1,6 @@
-emp_id,name,dept,nic
-E011,Kasun Silva,IT,12345
-E012,,Finance,960433149V
-E013,Lakshmi Devi,HR,199604303149999
-E014,Mahesh Fonseka,Operations,960433149Z
+emp_id,name,nic,image_name
+E011,Kasun Silva,12345,E011.jpg
+E012,,960433149V,E012.jpg
+E013,Lakshmi Devi,199604303149999,E013.jpg
+E014,Mahesh Fonseka,960433149Z,E014.jpg
+E015,Nimal Perera,960433149V,../secret.jpg

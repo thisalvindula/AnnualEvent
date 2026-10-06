@@ -1,8 +1,8 @@
 import { pool, query } from '../db.js';
 
 export async function getModuleStatuses() {
-  const { rows: raffleRows } = await query(`SELECT status FROM raffle_config WHERE id = 1`);
-  const { rows: voteRows } = await query(`SELECT status FROM vote_config WHERE id = 1`);
+  const { rows: raffleRows } = await query(`SELECT CASE WHEN status = 'open' AND closes_at <= now() THEN 'closed' ELSE status END AS status FROM raffle_config WHERE id = 1`);
+  const { rows: voteRows } = await query(`SELECT CASE WHEN status = 'open' AND closes_at <= now() THEN 'closed' ELSE status END AS status FROM vote_config WHERE id = 1`);
   return { raffleStatus: raffleRows[0]?.status ?? null, voteStatus: voteRows[0]?.status ?? null };
 }
 

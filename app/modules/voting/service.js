@@ -90,12 +90,14 @@ function scheduleTallyPublish() {
   const elapsed = now - lastTallyPublish;
   if (elapsed >= TALLY_THROTTLE_MS) {
     lastTallyPublish = now;
-    publishTally();
+    // Runs outside any request context, so a rejection here would otherwise
+    // be an unhandled rejection — catch and log instead of letting it escape.
+    publishTally().catch((err) => console.error('[voting] publishTally failed:', err));
   } else if (!pendingTallyTimeout) {
     pendingTallyTimeout = setTimeout(() => {
       pendingTallyTimeout = null;
       lastTallyPublish = Date.now();
-      publishTally();
+      publishTally().catch((err) => console.error('[voting] publishTally failed:', err));
     }, TALLY_THROTTLE_MS - elapsed);
   }
 }
@@ -151,6 +153,45 @@ export async function setFinalists(finalists) {
     throw err;
   }
   return { ok: true, finalists: ordered };
+}
+
+/**
+ * Edits one finalist's name, song or linked employee in place (position is
+ * fixed). Same rule as setFinalists: only while voting is still in draft, so
+ * the ballot can't change under people who are voting.
+ */
+export async function updateFinalist(id, input, { ip, by } = {}) {
+  const config = await repo.getConfig();
+  if (config.status !== 'draft') {
+    return { ok: false, message: 'Cannot change finalists once voting has started' };
+  }
+
+  const existing = (await repo.getFinalists()).find((f) => f.id === id);
+  if (!existing) return { ok: false, reason: 'not_found', message: `Finalist ${id} not found` };
+
+  const next = {
+    name: input.name === undefined ? existing.name : String(input.name).trim(),
+    song: input.song === undefined ? existing.song : String(input.song ?? '').trim() || null,
+    empId: input.empId === undefined ? existing.empId : String(input.empId ?? '').trim() || null,
+  };
+  if (!next.name) return { ok: false, message: 'every finalist needs a non-empty name' };
+
+  let updated;
+  try {
+    updated = await repo.updateFinalist(id, next);
+  } catch (err) {
+    if (err.code === '23503') return { ok: false, message: `Employee ${next.empId} does not exist` };
+    throw err;
+  }
+  if (!updated) return { ok: false, reason: 'not_found', message: `Finalist ${id} not found` };
+
+  await logEvent({
+    module: 'voting',
+    event: 'finalist_updated',
+    ip,
+    detail: { by, id, from: { name: existing.name, song: existing.song, empId: existing.empId }, to: next },
+  });
+  return { ok: true, finalist: updated };
 }
 
 export async function setDuration(durationMinutes) {

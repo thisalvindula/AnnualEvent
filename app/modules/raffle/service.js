@@ -6,8 +6,6 @@ import { publish } from '../../core/sse-hub.js';
 import { verifyOwnPassword } from '../../core/auth/confirm.js';
 import * as repo from './repo.js';
 
-const REQUIRED_NORMAL_GIFTS = 10;
-const REQUIRED_PREMIUM_GIFTS = 15;
 const DEFAULT_WINDOW_MINUTES = 15;
 const CHANNEL = 'raffle';
 
@@ -57,39 +55,99 @@ export async function register({ empId, last4, ip, userAgent }) {
   return { ok: true, ticketNo: row.ticket_no, name: verifyResult.name };
 }
 
-function validateGiftComposition(gifts) {
-  if (!Array.isArray(gifts) || gifts.length === 0) {
-    return 'gifts must be a non-empty array';
-  }
-  const normal = gifts.filter((g) => g.tier === 'normal');
-  const premium = gifts.filter((g) => g.tier === 'premium');
-  if (normal.length !== REQUIRED_NORMAL_GIFTS || premium.length !== REQUIRED_PREMIUM_GIFTS) {
-    return `gifts must be exactly ${REQUIRED_NORMAL_GIFTS} normal and ${REQUIRED_PREMIUM_GIFTS} premium (got ${normal.length} normal, ${premium.length} premium)`;
-  }
-  if (gifts.some((g) => typeof g.name !== 'string' || g.name.trim().length === 0)) {
-    return 'every gift needs a non-empty name';
-  }
-  return null;
+function cleanGiftInput({ id, place, quantity, description, section }) {
+  const cleaned = {
+    id,
+    place: typeof place === 'string' ? place.trim() : '',
+    quantity,
+    description: typeof description === 'string' ? description.trim() : '',
+    section,
+  };
+  if (!Number.isInteger(cleaned.id) || cleaned.id < 1) return { error: 'Gift id must be a whole number, 1 or more' };
+  if (!cleaned.place) return { error: 'Gift place is required (e.g. "1st place")' };
+  if (!Number.isInteger(cleaned.quantity) || cleaned.quantity < 1) return { error: 'Quantity must be a whole number, 1 or more' };
+  if (!cleaned.description) return { error: 'Gift description is required' };
+  if (cleaned.section !== 'podium' && cleaned.section !== 'consolation') return { error: 'Section must be podium or consolation' };
+  if (cleaned.section === 'podium' && cleaned.quantity !== 1) return { error: 'A podium prize has exactly one winner — set the quantity to 1 or use the consolation row' };
+  return { gift: cleaned };
 }
 
-export async function setGifts(gifts) {
-  const config = await repo.getConfig();
-  if (config.status !== 'draft') {
-    return { ok: false, message: 'Cannot change the gift list once the raffle has opened' };
+/**
+ * The gift list is freely editable at any time (draft, open, or mid-draw) so
+ * mistakes can always be fixed; the only limits protect draws already made:
+ * a gift can't be deleted, or have its quantity cut below its drawn winners.
+ * Draw order is ascending gift id.
+ */
+export async function createGift(input, { ip, by } = {}) {
+  const { gift, error } = cleanGiftInput({ ...input, section: input.section ?? (input.quantity === 1 ? 'podium' : 'consolation') });
+  if (error) return { ok: false, message: error };
+
+  const created = await repo.insertGift(gift);
+  if (!created) return { ok: false, reason: 'exists', message: `A gift with id ${gift.id} already exists` };
+
+  await logEvent({ module: 'raffle', event: 'gift_created', ip, detail: { by, ...gift } });
+  return { ok: true, gift: created };
+}
+
+export async function updateGift(id, input, { ip, by } = {}) {
+  const existing = await repo.getGift(id);
+  if (!existing) return { ok: false, reason: 'not_found', message: `Gift ${id} not found` };
+
+  const { gift, error } = cleanGiftInput({
+    id: input.id ?? id,
+    place: input.place ?? existing.place,
+    quantity: input.quantity ?? existing.quantity,
+    description: input.description ?? existing.description,
+    section: input.section ?? existing.section,
+  });
+  if (error) return { ok: false, message: error };
+  if (gift.quantity < existing.drawn) {
+    return {
+      ok: false,
+      message: `${existing.drawn} winner${existing.drawn === 1 ? ' has' : 's have'} already been drawn for this gift, so the quantity can't go below ${existing.drawn}`,
+    };
   }
 
-  const validationError = validateGiftComposition(gifts);
-  if (validationError) {
-    return { ok: false, message: validationError };
+  let updated;
+  try {
+    updated = await repo.updateGift(id, { newId: gift.id, ...gift });
+  } catch (err) {
+    if (err.code === '23505') return { ok: false, reason: 'exists', message: `A gift with id ${gift.id} already exists` };
+    throw err;
+  }
+  if (!updated) return { ok: false, reason: 'not_found', message: `Gift ${id} not found` };
+
+  await logEvent({
+    module: 'raffle',
+    event: 'gift_updated',
+    ip,
+    detail: {
+      by,
+      id,
+      from: { id: existing.id, place: existing.place, quantity: existing.quantity, description: existing.description, section: existing.section },
+      to: gift,
+    },
+  });
+  return { ok: true, gift: updated };
+}
+
+export async function deleteGift(id, { ip, by } = {}) {
+  const existing = await repo.getGift(id);
+  if (!existing) return { ok: false, reason: 'not_found', message: `Gift ${id} not found` };
+  if (existing.drawn > 0) {
+    return { ok: false, reason: 'in_use', message: 'Winners have already been drawn for this gift, so it can\'t be deleted' };
   }
 
-  // Draw order: normal gifts first, premium gifts last (requirement 9.3).
-  const normal = gifts.filter((g) => g.tier === 'normal');
-  const premium = gifts.filter((g) => g.tier === 'premium');
-  const ordered = [...normal, ...premium].map((g, i) => ({ name: g.name.trim(), tier: g.tier, seq: i + 1 }));
-
-  await repo.replaceGifts(ordered);
-  return { ok: true, gifts: ordered };
+  try {
+    await repo.deleteGift(id);
+  } catch (err) {
+    if (err.code === '23503') {
+      return { ok: false, reason: 'in_use', message: 'Winners have already been drawn for this gift, so it can\'t be deleted' };
+    }
+    throw err;
+  }
+  await logEvent({ module: 'raffle', event: 'gift_deleted', ip, detail: { by, ...existing } });
+  return { ok: true };
 }
 
 export async function open({ windowMinutes = DEFAULT_WINDOW_MINUTES, ip, by } = {}) {
@@ -98,9 +156,9 @@ export async function open({ windowMinutes = DEFAULT_WINDOW_MINUTES, ip, by } = 
     return { ok: false, message: `Cannot open: raffle status is "${config.status}"` };
   }
 
-  const gifts = await repo.getGifts();
-  if (gifts.length !== REQUIRED_NORMAL_GIFTS + REQUIRED_PREMIUM_GIFTS) {
-    return { ok: false, message: 'Configure the full 25-gift list before opening' };
+  const { totalPrizes } = await repo.getPrizeProgress();
+  if (totalPrizes === 0) {
+    return { ok: false, message: 'Configure the gift list before opening' };
   }
 
   if (!Number.isFinite(windowMinutes) || windowMinutes <= 0) {
@@ -152,6 +210,48 @@ export async function reset({ password, wipeGifts = false, username, ip, by } = 
   return { ok: true };
 }
 
+/** Prize totals for the big screen (kept out of the public status so employee polling stays light). */
+export async function getProgress() {
+  const [progress, gifts, winners] = await Promise.all([repo.getPrizeProgress(), repo.getGifts(), repo.getAllDrawResults()]);
+  return { ...progress, gifts: gifts.map(layoutGift), winners: winners.map(layoutWinner) };
+}
+
+const layoutGift = (g) => ({ id: g.id, place: g.place, description: g.description, quantity: g.quantity, section: g.section });
+const layoutWinner = (r) => ({ giftId: r.gift_id, slot: r.slot, empId: r.emp_id, name: r.name, imageName: r.image_name });
+
+/**
+ * Everything the raffle screen (and the admin raffle page) need to resume
+ * correctly after a reload: prize totals, the most recent winners, and the
+ * last sealed-list banner — all read back from durable storage, so a screen
+ * that reconnects mid-draw (or after sealing) shows the same thing it would
+ * have if it had never disconnected.
+ */
+export async function getSnapshot() {
+  const [{ totalPrizes, drawnCount, gifts, winners }, recent, seal] = await Promise.all([
+    getProgress(),
+    repo.getRecentDrawResults(6),
+    repo.getLastSeal(),
+  ]);
+  const recentWinners = recent.map((r) => ({
+    giftId: r.gift_id,
+    place: r.place,
+    description: r.description,
+    quantity: r.quantity,
+    slot: r.slot,
+    empId: r.emp_id,
+    name: r.name,
+    imageName: r.image_name,
+    drawnAt: r.drawn_at,
+  }));
+  return { totalPrizes, drawnCount, gifts, winners, recentWinners, sealed: seal };
+}
+
+/** Registered entrants' display names only — used by the screen's draw
+ * animation to shuffle through real entries instead of random characters. */
+export async function getEntrantNames() {
+  return repo.getEntrantNames();
+}
+
 export async function exportRegistrations({ ip, by } = {}) {
   const config = await repo.getConfig();
   if (config.status !== 'closed') {
@@ -166,7 +266,7 @@ export async function exportRegistrations({ ip, by } = {}) {
 }
 
 /**
- * Draws one winner for the next undrawn gift. Uses crypto.randomInt (never
+ * Draws one winner for the next gift that still has winners left (ascending gift id). Uses crypto.randomInt (never
  * Math.random) for the pick, and relies on the atomic INSERT ... ON CONFLICT
  * DO NOTHING patterns in repo.js as the concurrency backstop, retrying a few
  * times if a concurrent draw changed state underneath it (requirement 9.3).
@@ -175,6 +275,11 @@ export async function drawNext({ ip, by } = {}) {
   const config = await repo.getConfig();
   if (config.status !== 'closed') {
     return { ok: false, message: 'Close registration before drawing' };
+  }
+
+  const seal = await repo.getLastSeal();
+  if (!seal) {
+    return { ok: false, message: 'Lock the entry list before drawing' };
   }
 
   for (let attempt = 0; attempt < 5; attempt++) {
@@ -189,9 +294,10 @@ export async function drawNext({ ip, by } = {}) {
     }
 
     const winnerEmpId = eligible[randomInt(0, eligible.length)];
-    const result = await repo.insertDrawResult({ seq: gift.seq, empId: winnerEmpId });
+    const slot = gift.drawn + 1;
+    const result = await repo.insertDrawResult({ giftId: gift.id, slot, empId: winnerEmpId });
     if (!result) {
-      // Lost a race with a concurrent draw for the same gift/winner; retry with fresh state.
+      // Lost a race with a concurrent draw for the same gift slot/winner; retry with fresh state.
       continue;
     }
 
@@ -203,20 +309,27 @@ export async function drawNext({ ip, by } = {}) {
       event: 'draw',
       empId: winnerEmpId,
       ip,
-      detail: { by, seq: gift.seq, gift: gift.name, tier: gift.tier },
+      detail: { by, giftId: gift.id, slot, place: gift.place, description: gift.description },
     });
 
-    const remaining = REQUIRED_NORMAL_GIFTS + REQUIRED_PREMIUM_GIFTS - (await repo.getDrawResultsCount());
-    publish(CHANNEL, 'winner', {
-      seq: gift.seq,
-      gift: gift.name,
-      tier: gift.tier,
+    const { totalPrizes, drawnCount } = await repo.getPrizeProgress();
+    const payload = {
+      giftId: gift.id,
+      place: gift.place,
+      description: gift.description,
+      slot,
+      quantity: gift.quantity,
+      section: gift.section,
       empId: winnerEmpId,
       name: winnerName,
-      remaining,
-    });
+      imageName: winner?.image_name ?? null,
+      drawnCount,
+      totalPrizes,
+      remaining: totalPrizes - drawnCount,
+    };
+    publish(CHANNEL, 'winner', payload);
 
-    return { ok: true, seq: gift.seq, gift: gift.name, tier: gift.tier, empId: winnerEmpId, name: winnerName, remaining };
+    return { ok: true, ...payload };
   }
 
   return { ok: false, message: 'Could not draw a winner after several attempts, please retry' };

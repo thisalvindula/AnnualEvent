@@ -18,6 +18,7 @@ export function requireScreenAccess(expectedToken) {
       return reply;
     }
     if (!ipAllowed(request.ip)) {
+      request.log.warn({ ip: request.ip }, 'screen access denied: IP not in SCREEN_ALLOWED_IPS');
       reply.code(403).send({ error: 'forbidden' });
       return reply;
     }

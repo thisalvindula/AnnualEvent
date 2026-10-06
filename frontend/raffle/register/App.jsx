@@ -16,6 +16,7 @@ export function App() {
   const [pending, setPending] = useState(null); // { empId, last4, name }
   const [message, setMessage] = useState(null); // { text, kind }
   const [done, setDone] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -41,16 +42,23 @@ export function App() {
   async function handleVerify(e) {
     e.preventDefault();
     setMessage(null);
-    const res = await fetch('/raffle/api/verify', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ empId, last4 }),
-    });
-    const body = await res.json();
-    if (body.ok) {
-      setPending({ empId, last4, name: body.name });
-    } else {
-      setMessage({ text: body.message || 'Verification failed', kind: 'error' });
+    setSubmitting(true);
+    try {
+      const res = await fetch('/raffle/api/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ empId, last4 }),
+      });
+      const body = await res.json();
+      if (body.ok) {
+        setPending({ empId, last4, name: body.name });
+      } else {
+        setMessage({ text: body.message || 'Verification failed', kind: 'error' });
+      }
+    } catch {
+      setMessage({ text: 'Could not reach the server. Check your connection and try again.', kind: 'error' });
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -58,18 +66,25 @@ export function App() {
     e.preventDefault();
     setMessage(null);
     if (!pending) return;
-    const res = await fetch('/raffle/api/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ empId: pending.empId, last4: pending.last4 }),
-    });
-    const body = await res.json();
-    if (body.ok) {
-      setMessage({ text: `You're registered! Ticket #${body.ticketNo}`, kind: 'success' });
-      setDone(true);
-      setPending(null);
-    } else {
-      setMessage({ text: body.message || 'Registration failed', kind: 'error' });
+    setSubmitting(true);
+    try {
+      const res = await fetch('/raffle/api/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ empId: pending.empId, last4: pending.last4 }),
+      });
+      const body = await res.json();
+      if (body.ok) {
+        setMessage({ text: `You're registered! Ticket #${body.ticketNo}`, kind: 'success' });
+        setDone(true);
+        setPending(null);
+      } else {
+        setMessage({ text: body.message || 'Registration failed', kind: 'error' });
+      }
+    } catch {
+      setMessage({ text: 'Could not reach the server. Check your connection and try again.', kind: 'error' });
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -114,25 +129,23 @@ export function App() {
             value={empId}
             onInput={(e) => setEmpId(e.currentTarget.value)}
           />
-          <label htmlFor="last4">Last 4 digits of NIC</label>
+          <label htmlFor="last4">Last 4 digits of NIC (or full NIC)</label>
           <input
             id="last4"
             required
             autoComplete="off"
             inputMode="numeric"
-            maxLength={4}
-            pattern="\d{4}"
             value={last4}
             onInput={(e) => setLast4(e.currentTarget.value)}
           />
-          <button type="submit">Check</button>
+          <button type="submit" disabled={submitting}>{submitting ? 'Checking…' : 'Check'}</button>
         </form>
       )}
 
       {showConfirmForm && (
         <form onSubmit={handleConfirm}>
           <p>Register {pending.name} ({pending.empId})?</p>
-          <button type="submit">Confirm registration</button>
+          <button type="submit" disabled={submitting}>{submitting ? 'Registering…' : 'Confirm registration'}</button>
         </form>
       )}
 

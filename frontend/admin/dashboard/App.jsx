@@ -1,25 +1,33 @@
-import { useEffect, useState } from 'preact/hooks';
+import { useCallback, useEffect, useState } from 'preact/hooks';
 import { fetchCsrfToken, getJson } from '../../shared/csrf.js';
-import { StatusPill } from '../../shared/ui/StatusPill.jsx';
 import { ClearDatabaseCard } from './ClearDatabaseCard.jsx';
+import { ImportBox } from './ImportBox.jsx';
+import { QrCodesCard } from './QrCodesCard.jsx';
 
-async function fetchModuleStatus(url) {
-  const res = await fetch(url, { credentials: 'same-origin' });
-  if (!res.ok) return null;
-  return res.json();
+const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+
+// null when the request isn't allowed for this role (or failed).
+async function fetchOrNull(url) {
+  const { ok, data } = await getJson(url);
+  return ok ? data : null;
 }
 
 export function App() {
-  const [me, setMe] = useState(undefined); // undefined = loading, null = unauthenticated
+  const [me, setMe] = useState(undefined); // undefined = loading
   const [csrfToken, setCsrfToken] = useState(null);
-  const [raffleStatus, setRaffleStatus] = useState(null);
-  const [voteStatus, setVoteStatus] = useState(null);
-  const [importResult, setImportResult] = useState(null);
+  const [info, setInfo] = useState(null);
+  const [showImport, setShowImport] = useState(false);
 
-  function refreshModuleStatuses() {
-    fetchModuleStatus('/admin/api/raffle/detail').then((d) => setRaffleStatus(d ? d.status : 'unknown'));
-    fetchModuleStatus('/admin/api/vote/detail').then((d) => setVoteStatus(d ? d.status : 'unknown'));
-  }
+  const refresh = useCallback(async () => {
+    const [employees, gifts, finalists, raffle, vote] = await Promise.all([
+      fetchOrNull('/admin/api/employees'),
+      fetchOrNull('/admin/api/raffle/gifts'),
+      fetchOrNull('/admin/api/vote/finalists'),
+      fetchOrNull('/admin/api/raffle/detail'),
+      fetchOrNull('/admin/api/vote/detail'),
+    ]);
+    setInfo({ employees, gifts, finalists, raffle, vote });
+  }, []);
 
   useEffect(() => {
     getJson('/admin/api/me').then(({ status, data }) => {
@@ -30,8 +38,8 @@ export function App() {
       setMe(data);
     });
     fetchCsrfToken().then(setCsrfToken).catch(() => {});
-    refreshModuleStatuses();
-  }, []);
+    refresh();
+  }, [refresh]);
 
   async function handleLogout(e) {
     e.preventDefault();
@@ -40,21 +48,121 @@ export function App() {
     window.location.href = '/admin/login';
   }
 
-  async function handleImport(e) {
-    e.preventDefault();
-    const file = e.target.elements.csvFile.files[0];
-    if (!file || !csrfToken) return;
-    const text = await file.text();
-    const res = await fetch('/admin/api/employees/import', {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/csv', 'x-csrf-token': csrfToken },
-      body: text,
-    });
-    const body = await res.json().catch(() => ({}));
-    setImportResult(body);
+  if (me === undefined || info === null) return null;
+
+  const role = me.role;
+  const canEditEmployees = role === 'raffle_operator' || role === 'vote_operator';
+  const isAuditor = role === 'auditor';
+
+  const employeeCount = info.employees?.count ?? 0;
+  const giftCount = info.gifts?.count ?? 0;
+  const finalistCount = info.finalists?.count ?? 0;
+  const raffle = info.raffle;
+  const vote = info.vote;
+  const raffleDrawn = raffle ? raffle.gifts.reduce((sum, g) => sum + g.drawn, 0) : 0;
+
+  const employeesDone = employeeCount > 0;
+  const prizesDone = giftCount > 0;
+  const finalistsDone = finalistCount === 5;
+
+  // ---- rows of the checklist -------------------------------------------------
+  const prepare = [
+    {
+      key: 'employees',
+      title: 'Employee list',
+      desc: employeesDone ? `${plural(employeeCount, 'employee', 'employees')} loaded` : 'Load the list of employees who can take part',
+      state: employeesDone ? 'done' : 'current',
+      action: canEditEmployees
+        ? { label: employeesDone ? 'Import more' : 'Import employees', onClick: () => setShowImport((v) => !v) }
+        : { label: 'View list', href: '/admin/lists' },
+      secondary: employeesDone && canEditEmployees ? { label: 'View or edit', href: '/admin/lists' } : null,
+    },
+    {
+      key: 'prizes',
+      title: 'Raffle prizes',
+      desc: prizesDone ? `${plural(giftCount, 'prize', 'prizes')}, ${plural(info.gifts.totalPrizes, 'winner', 'winners')} in total` : 'Add the prizes that will be drawn',
+      state: prizesDone ? 'done' : employeesDone ? 'current' : 'todo',
+      action: { label: prizesDone ? 'Review prizes' : 'Set up prizes', href: raffle ? '/admin/raffle' : '/admin/lists' },
+    },
+    {
+      key: 'finalists',
+      title: 'Voting finalists',
+      desc: finalistsDone ? 'All 5 finalists chosen' : `${finalistCount} of 5 finalists chosen`,
+      state: finalistsDone ? 'done' : employeesDone ? 'current' : 'todo',
+      action: { label: finalistsDone ? 'Review finalists' : 'Choose finalists', href: vote ? '/admin/vote' : '/admin/lists' },
+    },
+  ];
+
+  const raffleRow = raffle && {
+    key: 'raffle',
+    title: 'Run the raffle',
+    desc:
+      raffle.status === 'open'
+        ? `Registration is open · ${plural(raffle.entryCount, 'employee', 'employees')} entered`
+        : raffle.status === 'closed'
+          ? raffleDrawn >= raffle.totalPrizes && raffle.totalPrizes > 0
+            ? `Finished · ${plural(raffleDrawn, 'winner', 'winners')} drawn`
+            : `Registration closed · ${raffleDrawn} of ${raffle.totalPrizes} winners drawn`
+          : 'Open registration, then draw the winners',
+    state:
+      raffle.status === 'closed' && raffle.totalPrizes > 0 && raffleDrawn >= raffle.totalPrizes
+        ? 'done'
+        : !prizesDone
+          ? 'locked'
+          : 'current',
+    lockedText: 'Set up the prizes first',
+    action: { label: raffle.status === 'draft' ? 'Start the raffle' : isAuditor ? 'View raffle' : 'Go to the raffle', href: '/admin/raffle' },
+  };
+
+  const voteRow = vote && {
+    key: 'vote',
+    title: 'Run the voting',
+    desc:
+      vote.status === 'open'
+        ? `Voting is open · ${plural(vote.totalVotes, 'vote', 'votes')} so far`
+        : vote.status === 'closed'
+          ? `Finished · ${plural(vote.totalVotes, 'vote', 'votes')} cast`
+          : 'Start voting, then close it to see the winner',
+    state: vote.status === 'closed' ? 'done' : !finalistsDone ? 'locked' : 'current',
+    lockedText: 'Choose the 5 finalists first',
+    action: { label: vote.status === 'draft' ? 'Start the voting' : isAuditor ? 'View voting' : 'Go to the voting', href: '/admin/vote' },
+  };
+
+  const after = [
+    (raffle || isAuditor) && { key: 'raffle-csv', title: 'Raffle winners', desc: 'Download the list of winners (CSV)', href: '/admin/api/raffle/results/export' },
+    isAuditor && { key: 'vote-csv', title: 'Voting results', desc: 'Download every vote (CSV)', href: '/admin/api/vote/results/export' },
+    isAuditor && { key: 'audit', title: 'Activity log', desc: 'Download the full record of who did what (CSV)', href: '/admin/api/audit/export' },
+  ].filter(Boolean);
+
+  const eventRows = [raffleRow, voteRow].filter(Boolean);
+  const all = [...prepare, ...eventRows];
+  // Auditors are read-only, so nothing is "their turn".
+  if (isAuditor) all.forEach((r) => { if (r.state === 'current') r.state = 'todo'; });
+  const next = all.find((r) => r.state === 'current');
+
+  function Row({ row, number }) {
+    const locked = row.state === 'locked';
+    return (
+      <div className="check-row" data-state={row.state}>
+        <span className="step-badge">{row.state === 'done' ? '✓' : number}</span>
+        <div className="step-text">
+          <span className="step-title">{row.title}</span>
+          <span className="step-sub">{locked ? row.lockedText : row.desc}</span>
+        </div>
+        {!locked && row.secondary && <a className="btn btn-secondary" href={row.secondary.href}>{row.secondary.label}</a>}
+        {!locked && row.action.href && (
+          <a className={`btn${row.state === 'current' ? '' : ' btn-secondary'}`} href={row.action.href}>{row.action.label}</a>
+        )}
+        {!locked && row.action.onClick && (
+          <button type="button" className={row.state === 'current' ? '' : 'btn-secondary'} onClick={row.action.onClick}>
+            {row.action.label}
+          </button>
+        )}
+      </div>
+    );
   }
 
-  if (me === undefined) return null;
+  let n = 0;
 
   return (
     <div className="page-wide">
@@ -64,58 +172,76 @@ export function App() {
           <span className="name">Annual Event Admin</span>
         </div>
         <p style={{ margin: 0, fontSize: '0.88rem', color: 'var(--muted)' }}>
-          Logged in as <strong style={{ color: 'var(--navy-900)' }}>{me.username}</strong> ({me.role})
+          Signed in as <strong style={{ color: 'var(--navy-900)' }}>{me.username}</strong>
           {' — '}
-          <a href="#" onClick={handleLogout}>Log out</a>
+          <a href="#" onClick={handleLogout}>Sign out</a>
         </p>
       </div>
-      <h1>Dashboard</h1>
+      <h1>Event checklist</h1>
 
-      <div className="stat-grid">
-        <div className="stat-tile">
-          <div className="stat-label">Raffle</div>
-          <div className="stat-value" style={{ fontSize: '1.15rem' }}>
-            {raffleStatus && raffleStatus !== 'unknown' ? <StatusPill status={raffleStatus} /> : '—'}
-          </div>
-          <a href="/admin/raffle">Manage →</a>
+      <div className="next-banner">
+        <div>
+          <div className="kicker">{next ? 'Your next step' : 'All done'}</div>
+          <div className="title">{next ? next.title : 'Everything on the checklist is finished 🎉'}</div>
+          <div className="desc">{next ? next.desc : 'You can download the results below.'}</div>
         </div>
-        <div className="stat-tile">
-          <div className="stat-label">Voting</div>
-          <div className="stat-value" style={{ fontSize: '1.15rem' }}>
-            {voteStatus && voteStatus !== 'unknown' ? <StatusPill status={voteStatus} /> : '—'}
-          </div>
-          <a href="/admin/vote">Manage →</a>
+        {next?.action.href && <a className="btn" href={next.action.href}>{next.action.label} →</a>}
+        {next?.action.onClick && (
+          <button type="button" className="btn" onClick={next.action.onClick}>{next.action.label} →</button>
+        )}
+      </div>
+
+      <div className="phase">
+        <h2>Before the event</h2>
+        {prepare.map((row) => <Row key={row.key} row={row} number={++n} />)}
+        {showImport && canEditEmployees && (
+          <ImportBox csrfToken={csrfToken} onImported={refresh} onClose={() => setShowImport(false)} />
+        )}
+      </div>
+
+      {eventRows.length > 0 && (
+        <div className="phase">
+          <h2>On the day</h2>
+          {eventRows.map((row) => <Row key={row.key} row={row} number={++n} />)}
         </div>
+      )}
+
+      {after.length > 0 && (
+        <div className="phase">
+          <h2>After the event</h2>
+          {after.map((row) => (
+            <div className="check-row" key={row.key}>
+              <div className="step-text">
+                <span className="step-title">{row.title}</span>
+                <span className="step-sub">{row.desc}</span>
+              </div>
+              <a className="btn btn-secondary" href={row.href}>Download</a>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="phase">
+        <h2>Event QR codes</h2>
+        <QrCodesCard />
       </div>
 
-      <div className="card">
-        <h2>Lists</h2>
-        <p>Browse the employee roster, the raffle gift list and the voting finalists.</p>
-        <a href="/admin/lists">View lists →</a>
+      <div className="phase">
+        <h2>More</h2>
+        <div className="check-row">
+          <div className="step-text">
+            <span className="step-title">Employees, prizes and finalists</span>
+            <span className="step-sub">Browse and edit the full lists</span>
+          </div>
+          <a className="btn btn-secondary" href="/admin/lists">Open lists</a>
+        </div>
+        <ClearDatabaseCard
+          csrfToken={csrfToken}
+          raffleStatus={raffle?.status}
+          voteStatus={vote?.status}
+          onCleared={refresh}
+        />
       </div>
-
-      <div className="card">
-        <h2>Employee master list</h2>
-        <p>Upload a CSV with header <code>emp_id,name,dept,nic</code>. Existing employee IDs are updated in place.</p>
-        <form onSubmit={handleImport}>
-          <label htmlFor="csvFile">CSV file</label>
-          <input id="csvFile" name="csvFile" type="file" accept=".csv,text/csv" required />
-          <button type="submit">Import</button>
-        </form>
-        {importResult && <pre>{JSON.stringify(importResult, null, 2)}</pre>}
-      </div>
-
-      <div className="card">
-        <h2>Audit log</h2>
-        <p><a href="/admin/api/audit/export">Download full audit log (CSV)</a> — requires the auditor role.</p>
-      </div>
-
-      <ClearDatabaseCard
-        csrfToken={csrfToken}
-        raffleStatus={raffleStatus}
-        voteStatus={voteStatus}
-        onCleared={refreshModuleStatuses}
-      />
     </div>
   );
 }

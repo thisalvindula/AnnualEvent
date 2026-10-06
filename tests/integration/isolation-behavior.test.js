@@ -6,8 +6,7 @@ import {
   resetDatabase,
   makeTestEmployees,
   seedEmployees,
-  normalGifts,
-  premiumGifts,
+  seedGifts,
   forceConfigDraft,
   closeAllConnections,
 } from './helpers.js';
@@ -32,7 +31,7 @@ const finalists = [
 before(async () => {
   await resetDatabase();
   await seedEmployees(employees);
-  await raffle.setGifts([...normalGifts(10), ...premiumGifts(15)]);
+  await seedGifts();
   await voting.setFinalists(finalists);
 });
 

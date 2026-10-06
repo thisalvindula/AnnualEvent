@@ -1,6 +1,13 @@
 @import '../../shared/theme.css';
+@import '../../shared/workflow.css';
 
 body {
   background: var(--silver-100);
   margin: 0;
 }
+
+.qr-card { display: grid; gap: 12px; }
+.qr-item { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; padding: 12px; border: 1px solid var(--border, #d9dee8); border-radius: 12px; }
+.qr-item img, .qr-ph { width: 150px; height: 150px; border-radius: 8px; background: #fff; }
+.qr-item .step-text { flex: 1; min-width: 180px; word-break: break-all; }
+.qr-warn { margin: 0; padding: 10px 12px; border-radius: 8px; background: #fff4e5; color: #8a4b00; font-size: 0.9rem; }

@@ -1,7 +1,8 @@
 /* Shared theme: Annual Event app.
    Single source of truth for color, spacing and motion across
    employee pages and admin pages. Big-screen-only classes/keyframes
-   live in screen-theme.css so employee bundles don't carry them. */
+   use their own stage design system (shared/stage/stage.css) so employee
+   bundles don't carry them. */
 
 :root {
   --navy-950: #060b18;
@@ -152,10 +153,22 @@ a {
   padding: 1.75rem 1.25rem 3rem;
 }
 
+/* Admin pages: fill the viewport. Header blocks span the full width and
+   cards flow into as many columns as fit (a lone card fills the row). */
 .page-wide {
-  max-width: 760px;
-  margin: 0 auto;
-  padding: 0 1.25rem 3rem;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0 clamp(1rem, 3vw, 3rem) 3rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 520px), 1fr));
+  column-gap: 1.25rem;
+  align-items: start;
+}
+
+.page-wide > :not(.card),
+.page-wide > .card.card-wide {
+  grid-column: 1 / -1;
 }
 
 .brand {

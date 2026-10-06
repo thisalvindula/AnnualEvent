@@ -1,4 +1,6 @@
 @import '../../shared/theme.css';
+@import '../../shared/admin-tables.css';
+@import '../../shared/workflow.css';
 
 body {
   background: var(--silver-100);
@@ -21,4 +23,15 @@ button.stat-tile {
 .stat-tile.active {
   border-color: var(--accent);
   box-shadow: 0 0 0 2px var(--accent);
+}
+
+.nic {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.nic-missing {
+  color: var(--silver-500);
+  font-size: 0.85rem;
 }

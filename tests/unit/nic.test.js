@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   extractLast4FromFullNic,
+  extractLast4FromUserInput,
   isValidLast4Input,
   normalizeLast4Input,
 } from '../../app/core/nic.js';
@@ -43,4 +44,21 @@ test('isValidLast4Input accepts only exactly 4 digits (after trimming)', () => {
 test('normalizeLast4Input trims strings and passes through non-strings unchanged', () => {
   assert.equal(normalizeLast4Input(' 1234 '), '1234');
   assert.equal(normalizeLast4Input(undefined), undefined);
+});
+
+test('extractLast4FromUserInput accepts the last 4 digits or a full NIC in either format', () => {
+  assert.equal(extractLast4FromUserInput('3149'), '3149');
+  assert.equal(extractLast4FromUserInput(' 3149 '), '3149');
+  assert.equal(extractLast4FromUserInput('960433149V'), '3149');
+  assert.equal(extractLast4FromUserInput('960433149v'), '3149');
+  assert.equal(extractLast4FromUserInput('199604303149'), '3149');
+});
+
+test('extractLast4FromUserInput rejects anything else', () => {
+  assert.equal(extractLast4FromUserInput('123'), null);
+  assert.equal(extractLast4FromUserInput('12345'), null);
+  assert.equal(extractLast4FromUserInput('abcd'), null);
+  assert.equal(extractLast4FromUserInput('960433149Z'), null);
+  assert.equal(extractLast4FromUserInput(''), null);
+  assert.equal(extractLast4FromUserInput(undefined), null);
 });

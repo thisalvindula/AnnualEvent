@@ -1,23 +1,45 @@
 @import '../../shared/theme.css';
+@import '../../shared/admin-tables.css';
+@import '../../shared/workflow.css';
 
 body {
   background: var(--silver-100);
   margin: 0;
 }
 
+.finalist-rows {
+  display: grid;
+  gap: 0.6rem;
+  margin-top: 0.75rem;
+}
+
+/* number, photo, then name / song / employee ID sharing the rest of the row */
 .finalist-row {
-  display: flex;
-  gap: 0.5rem;
-  margin-top: 0.6rem;
+  display: grid;
+  grid-template-columns: 1.5rem 2.6rem repeat(3, minmax(0, 1fr));
+  gap: 0.6rem;
   align-items: center;
 }
 
-.finalist-row span {
-  width: 1.5rem;
-  font-weight: 700;
+.finalist-num {
+  font-weight: 800;
   color: var(--navy-700);
+  text-align: center;
 }
 
 .finalist-row input {
   margin-top: 0;
+}
+
+@media (max-width: 720px) {
+  .finalist-row {
+    grid-template-columns: 1.5rem 2.6rem 1fr;
+  }
+  .finalist-row input {
+    grid-column: 3;
+  }
+}
+
+tr.leader-row td {
+  background: var(--accent-soft);
 }

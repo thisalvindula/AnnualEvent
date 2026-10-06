@@ -1,0 +1,469 @@
+/* AmSafe Bridport — big-screen stage design system.
+   Source of truth: Docs/Stage Design System.html. Tokens + shared .ev-
+   primitives used by BOTH large screens (/screen/raffle and /screen/vote).
+   Never imported by the employee or admin bundles — those keep theme.css.
+   Screen layouts live next to each screen (.rf- raffle, .vt- voting).
+   Fonts (Big Shoulders Display + IBM Plex Sans, self-hosted via
+   @fontsource) are imported in fonts.js. */
+
+:root {
+  color-scheme: dark;
+
+  /* ---- Navy scale -------------------------------------------------- */
+  --navy-950:#060b18;
+  --navy-900:#0a1428;
+  --navy-800:#102544;
+  --navy-700:#17335e;
+  --navy-600:#204378;
+  --navy-500:#2c5697;
+
+  /* ---- Electric accent (light colour) -------------------------------- */
+  --accent:#4f7fe0;
+  --accent-bright:#7fa6ff;
+
+  /* ---- Silver scale --------------------------------------------------- */
+  --silver-100:#eef1f6;
+  --silver-200:#dde3ec;
+  --silver-300:#c3cbda;
+  --silver-400:#9aa5ba;
+  --silver-500:#707d94;
+
+  /* ---- Gold: rare celebration accent ONLY. Single token pair so it can
+     be pulled out wholesale if the gold accent is ever dropped. -------- */
+  --gold:#e0b64c;
+  --gold-bright:#f5d888;
+
+  /* ---- Semantic status (countdown urgency, badges) -------------------- */
+  --success:#49d69b;
+  --warning:#f5b942;
+  --critical:#ef5a6f;
+
+  /* ---- Brand marks — Logo component ONLY. Never used as UI chrome. --- */
+  --brand-red:#ff0000;
+  --brand-red-deep:#c20000;
+  --brand-blue:#001f98;
+  --brand-blue-bright:#2c46c9;
+
+  /* ---- Type ------------------------------------------------------------
+     Two families total, per the venue constraint:
+     display = Big Shoulders Display (headlines, numerals, reveals)
+     body    = IBM Plex Sans (labels, captions, data, hashes)
+     Numeric alignment (countdown, hash groups, vote counts) uses
+     font-variant-numeric: tabular-nums on the body face instead of a
+     third monospace family. ------------------------------------------- */
+  --font-display: 'Big Shoulders Display', 'Arial Narrow', 'Helvetica Neue', system-ui, sans-serif;
+  --font-body: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
+  /* Type scale for a 1080p stage, viewed from 10–40m.
+     Minimums from the brief: body 28px+, key info 48px+, countdown 220px+,
+     winner name 110px+. */
+  --fs-caption: 28px;
+  --fs-body: 32px;
+  --fs-label: 36px;
+  --fs-subhead: 48px;
+  --fs-head: 64px;
+  --fs-display: 96px;
+  --fs-countdown: 220px;
+  --fs-winner: 120px;
+
+  /* ---- Spacing ---------------------------------------------------------- */
+  --space-1: 8px;
+  --space-2: 16px;
+  --space-3: 24px;
+  --space-4: 32px;
+  --space-5: 48px;
+  --space-6: 64px;
+  --space-7: 96px;
+  --space-8: 128px;
+
+  /* ---- Radius ------------------------------------------------------------ */
+  --radius-sm: 8px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --radius-xl: 32px;
+  --radius-pill: 999px;
+
+  /* ---- Motion ------------------------------------------------------------
+     Cinematic ease-out curves + a shared duration scale. */
+  --ease-out-expo: cubic-bezier(.16,1,.3,1);
+  --ease-out-back: cubic-bezier(.34,1.56,.64,1);
+  --ease-standard: cubic-bezier(.4,0,.2,1);
+  --dur-fast: 180ms;
+  --dur-med: 360ms;
+  --dur-slow: 720ms;
+  --dur-cinematic: 3000ms;
+
+  /* Projector overscan safe margin */
+  --safe-margin: 4.5%;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+/* ==========================================================================
+   ev- SHARED PRIMITIVES — portable, reused by both raffle and voting screens
+   ========================================================================== */
+
+/* ---- StageBackground -------------------------------------------------- */
+.ev-stage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  isolation: isolate;
+  background: radial-gradient(120% 90% at 50% 40%, var(--navy-800) 0%, var(--navy-900) 55%, var(--navy-950) 100%);
+}
+.ev-stage__glow { position: absolute; inset: 0; pointer-events: none; mix-blend-mode: screen; }
+/* Two glow pools anchored in opposite corners, outside the content area. They
+   only breathe in place (no travel across the screen), so brightness behind
+   the content stays even on every screen and aspect ratio. */
+.ev-stage__glow::before,
+.ev-stage__glow::after {
+  content: '';
+  position: absolute;
+  width: 60vmax; height: 60vmax;
+  border-radius: 50%;
+  will-change: opacity, transform;
+}
+.ev-stage__glow::before {
+  left: -22vmax; top: -22vmax;
+  background: radial-gradient(closest-side, rgba(127,166,255,.22), transparent);
+  animation: ev-glow-pulse 10s ease-in-out infinite alternate;
+}
+.ev-stage__glow::after {
+  right: -22vmax; bottom: -22vmax;
+  background: radial-gradient(closest-side, rgba(79,127,224,.18), transparent);
+  animation: ev-glow-pulse 13s ease-in-out -5s infinite alternate;
+}
+.ev-stage--live .ev-stage__glow::before { animation-duration: 8s; }
+.ev-stage--live .ev-stage__glow::after { animation-duration: 10s; }
+.ev-stage--celebration .ev-stage__glow::before {
+  background: radial-gradient(closest-side, rgba(245,216,136,.26), transparent);
+  animation-duration: 6s;
+}
+.ev-stage--celebration .ev-stage__glow::after { animation-duration: 8s; }
+@keyframes ev-glow-pulse {
+  from { opacity: .45; transform: scale(.94); }
+  to   { opacity: 1;   transform: scale(1.06); }
+}
+
+
+
+.ev-stage__grid {
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(rgba(197,210,235,.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(197,210,235,.05) 1px, transparent 1px);
+  background-size: 64px 64px;
+  -webkit-mask-image: radial-gradient(60% 60% at 50% 42%, #000, transparent 78%);
+  mask-image: radial-gradient(60% 60% at 50% 42%, #000, transparent 78%);
+}
+.ev-stage__particles {
+  position: absolute; inset: 0; display: block; width: 100%; height: 100%;
+  /* keep the centre (main content) clear; particles live toward the edges */
+  -webkit-mask-image: radial-gradient(60% 55% at 50% 50%, transparent 30%, #000 75%);
+  mask-image: radial-gradient(60% 55% at 50% 50%, transparent 30%, #000 75%);
+}
+.ev-stage__lights { position: absolute; inset: 0; display: block; pointer-events: none; }
+.ev-stage--lights .ev-stage__glow { display: none; }
+.ev-stage--lights { background: radial-gradient(120% 90% at 50% 70%, #1a1240 0%, #0b0a24 55%, #05050f 100%); }
+.ev-stage__vignette {
+  position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(78% 68% at 50% 46%, transparent 52%, rgba(6,11,24,.78) 100%);
+}
+.ev-stage--celebration .ev-stage__vignette {
+  background: radial-gradient(78% 68% at 50% 46%, transparent 52%, rgba(24,16,4,.55) 100%);
+}
+.ev-stage__content { position: relative; z-index: 2; width: 100%; height: 100%; }
+
+/* ---- LiveBadge ----------------------------------------------------------- */
+.ev-badge {
+  display: inline-flex; align-items: center; gap: var(--space-2);
+  padding: 12px 28px;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(180deg, rgba(23,51,94,.75), rgba(10,20,40,.85));
+  border: 1px solid rgba(195,203,218,.22);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  font-family: var(--font-body); font-weight: 600; letter-spacing: .09em; text-transform: uppercase;
+  font-size: var(--fs-caption);
+  color: var(--silver-200);
+  white-space: nowrap;
+}
+.ev-badge__dot { width: 12px; height: 12px; border-radius: 50%; background: var(--silver-400); flex: none; }
+.ev-badge--live .ev-badge__dot { background: var(--accent-bright); animation: ev-pulse-dot 1.5s ease-in-out infinite; }
+.ev-badge--live { color: var(--silver-100); border-color: rgba(127,166,255,.45); }
+.ev-badge--drawing .ev-badge__dot { background: var(--gold-bright); animation: ev-pulse-dot .95s ease-in-out infinite; }
+.ev-badge--drawing { color: var(--gold-bright); border-color: rgba(224,182,76,.5); }
+.ev-badge--sealing .ev-badge__dot { background: var(--accent-bright); animation: ev-pulse-dot 2.2s ease-in-out infinite; }
+.ev-badge--final .ev-badge__dot { background: var(--gold); }
+.ev-badge--final { color: var(--gold-bright); border-color: rgba(224,182,76,.5); }
+.ev-badge--complete .ev-badge__dot { background: var(--silver-400); }
+.ev-badge--waiting .ev-badge__dot, .ev-badge--coming-up .ev-badge__dot { background: var(--silver-500); }
+@keyframes ev-pulse-dot {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.4); opacity: .55; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ev-badge__dot { animation: none !important; }
+}
+
+/* ---- Countdown ------------------------------------------------------------ */
+.ev-countdown {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-countdown);
+  line-height: 1;
+  color: var(--silver-100);
+  letter-spacing: .01em;
+  text-shadow: 0 0 50px rgba(79,127,224,.35);
+  display: inline-block;
+}
+.ev-countdown__seg { display: inline-block; animation: ev-tick .22s var(--ease-out-expo); }
+.ev-countdown--warning { color: var(--gold-bright); text-shadow: 0 0 60px rgba(224,182,76,.45); }
+.ev-countdown--critical {
+  color: #ffe3e3;
+  text-shadow: 0 0 70px rgba(239,90,111,.65);
+  animation: ev-countdown-pulse 1s ease-in-out infinite;
+}
+.ev-countdown--closed { color: var(--silver-500); text-shadow: none; font-size: var(--fs-head); text-transform: uppercase; letter-spacing: .08em; }
+@keyframes ev-tick { from { transform: translateY(-.08em) scale(1.06); opacity: .4; } to { transform: none; opacity: 1; } }
+@keyframes ev-countdown-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.045); } }
+@media (prefers-reduced-motion: reduce) {
+  .ev-countdown__seg { animation: none; }
+  .ev-countdown--critical { animation: none; }
+}
+
+/* ---- QrSlot ---------------------------------------------------------------- */
+.ev-qr { display: inline-flex; flex-direction: column; align-items: center; gap: var(--space-3); }
+.ev-qr__card {
+  position: relative;
+  width: 320px; height: 320px;
+  background: var(--silver-100);
+  border-radius: var(--radius-lg);
+  padding: 22px;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 0 0 1px rgba(255,255,255,.7), 0 24px 70px rgba(6,11,24,.55);
+}
+.ev-qr__frame {
+  position: absolute; inset: -8px;
+  border-radius: calc(var(--radius-lg) + 8px);
+  border: 2px solid var(--accent-bright);
+  opacity: .55;
+  animation: ev-qr-breathe 3.4s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes ev-qr-breathe { 0%, 100% { opacity: .45; } 50% { opacity: .85; } }
+.ev-qr__img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.ev-qr__placeholder { width: 100%; height: 100%; opacity: .3; color: var(--navy-700); }
+.ev-qr__label {
+  font-family: var(--font-display); font-weight: 700;
+  font-size: var(--fs-subhead); color: var(--silver-100);
+  text-transform: uppercase; letter-spacing: .04em;
+}
+.ev-qr__url { font-family: var(--font-body); font-size: var(--fs-body); color: var(--silver-300); }
+@media (prefers-reduced-motion: reduce) { .ev-qr__frame { animation: none; opacity: .65; } }
+
+/* ---- Avatar ------------------------------------------------------------- */
+.ev-avatar {
+  position: relative;
+  border-radius: 50%;
+  overflow: hidden;
+  display: inline-flex; align-items: center; justify-content: center;
+  flex: none;
+  background: linear-gradient(160deg, var(--navy-600), var(--navy-850, var(--navy-800)));
+  color: var(--silver-100);
+  font-family: var(--font-display); font-weight: 700;
+}
+.ev-avatar--sm { width: 64px; height: 64px; font-size: 24px; }
+.ev-avatar--md { width: 96px; height: 96px; font-size: 34px; }
+.ev-avatar--lg { width: 160px; height: 160px; font-size: 56px; }
+.ev-avatar--xl { width: 280px; height: 280px; font-size: 96px; }
+.ev-avatar__ring {
+  position: absolute; inset: 0; border-radius: 50%;
+  border: 6px solid var(--silver-300);
+  box-shadow: 0 0 0 2px rgba(6,11,24,.65), 0 0 42px rgba(159,171,196,.35);
+}
+.ev-avatar--premium .ev-avatar__ring {
+  border-color: var(--gold-bright);
+  box-shadow: 0 0 0 2px rgba(6,11,24,.65), 0 0 54px rgba(224,182,76,.55);
+}
+.ev-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* ---- AnimatedNumber -------------------------------------------------------- */
+.ev-num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; }
+
+/* ---- GlassPanel ------------------------------------------------------------ */
+.ev-glass {
+  position: relative;
+  background: linear-gradient(180deg, rgba(23,51,94,.55), rgba(10,20,40,.68));
+  border: 1px solid rgba(221,227,236,.16);
+  border-radius: var(--radius-lg);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 24px 70px rgba(6,11,24,.45);
+  padding: var(--space-4);
+}
+.ev-glass::before {
+  content: ''; position: absolute; inset: 0; border-radius: inherit; padding: 1px;
+  background: linear-gradient(135deg, rgba(255,255,255,.45), transparent 42%, transparent 58%, rgba(159,171,196,.28));
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* ---- MetalText -------------------------------------------------------------- */
+.ev-metal {
+  font-family: var(--font-display); font-weight: 700;
+  position: relative; display: inline-block;
+  background: linear-gradient(180deg, var(--silver-100) 0%, var(--silver-300) 42%, var(--silver-500) 54%, var(--silver-200) 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.ev-metal--gold { background: linear-gradient(180deg, var(--gold-bright) 0%, var(--gold) 50%, #fff2cf 100%); -webkit-background-clip: text; background-clip: text; }
+.ev-metal--sweep::after {
+  content: attr(data-text);
+  position: absolute; inset: 0;
+  background: linear-gradient(100deg, transparent 42%, rgba(255,255,255,.95) 50%, transparent 58%);
+  background-size: 260% 100%;
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  animation: ev-metal-sweep 4.5s linear infinite;
+}
+@keyframes ev-metal-sweep { 0% { background-position: 160% 0; } 100% { background-position: -100% 0; } }
+@media (prefers-reduced-motion: reduce) { .ev-metal--sweep::after { animation: none; display: none; } }
+
+/* ---- Confetti ----------------------------------------------------------------- */
+.ev-confetti-canvas { position: absolute; inset: 0; pointer-events: none; }
+
+/* ---- Logo ------------------------------------------------------------------- */
+.ev-logo { display: inline-block; width: var(--logo-size, 240px); line-height: 0; color: var(--silver-100); }
+.ev-logo__svg { width: 100%; height: auto; display: block; overflow: visible; }
+.ev-logo__glow { transition: opacity var(--dur-slow) var(--ease-standard); }
+.ev-logo--idle .ev-logo__glow { animation: ev-logo-breathe 4.2s ease-in-out infinite; }
+.ev-logo--static .ev-logo__glow { opacity: .55; }
+.ev-logo--intro .ev-logo__glow { opacity: 0; animation: ev-logo-glow-in var(--dur-slow) var(--ease-out-back) 2.5s forwards; }
+@keyframes ev-logo-breathe { 0%, 100% { opacity: .45; } 50% { opacity: .85; } }
+@keyframes ev-logo-glow-in { from { opacity: 0; } to { opacity: .6; } }
+
+.ev-logo__wipe { transform: translateX(-105%); }
+.ev-logo--intro .ev-logo__wipe { animation: ev-logo-wipe 2.6s var(--ease-out-expo) forwards; }
+.ev-logo--idle .ev-logo__wipe, .ev-logo--static .ev-logo__wipe { transform: translateX(0%); }
+@keyframes ev-logo-wipe { from { transform: translateX(-105%); } to { transform: translateX(0%); } }
+
+.ev-logo__sweep { mix-blend-mode: screen; }
+.ev-logo__sweepStop { stop-color: #fff; }
+/* Mono: brushed-silver ink (see Logo.jsx) with a gold glint sweeping across it. */
+.ev-logo--mono .ev-logo__sweep { mix-blend-mode: normal; }
+.ev-logo--mono .ev-logo__sweepStop { stop-color: var(--gold); }
+.ev-logo--mono .ev-logo__sweepStop--edge { stop-color: var(--gold); }
+.ev-logo--mono .ev-logo__sweepStop--core { stop-color: var(--gold-bright); }
+.ev-logo--mono .ev-logo__sweepBar { filter: none; }
+.ev-logo--mono .ev-logo__svg { filter: drop-shadow(0 0 14px rgba(195,203,218,.28)); }
+.ev-logo__sweepBar { transform: translateX(-140%); opacity: 0; }
+.ev-logo--intro .ev-logo__sweepBar { animation: ev-logo-sweep-once 1.1s var(--ease-standard) 2.2s both; }
+.ev-logo--idle .ev-logo__sweepBar { animation: ev-logo-sweep-loop 6s linear infinite; animation-delay: .6s; }
+@keyframes ev-logo-sweep-once {
+  0% { transform: translateX(-140%); opacity: 0; }
+  15% { opacity: .9; }
+  100% { transform: translateX(140%); opacity: 0; }
+}
+@keyframes ev-logo-sweep-loop {
+  0% { transform: translateX(-140%); opacity: 0; }
+  45% { opacity: .55; }
+  55% { opacity: .55; }
+  100% { transform: translateX(140%); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ev-logo__wipe { transform: translateX(0%) !important; animation: none !important; }
+  .ev-logo--intro .ev-logo__glow { animation: none !important; opacity: .55 !important; }
+  .ev-logo--intro { animation: ev-logo-fade-in .3s var(--ease-standard); }
+  .ev-logo__sweepBar { animation: none !important; opacity: 0 !important; }
+  .ev-logo--idle .ev-logo__glow { animation: none !important; opacity: .6 !important; }
+}
+@keyframes ev-logo-fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+/* ==========================================================================
+   Screen shell — a fixed 1920x1080 design canvas, scaled to the viewport by
+   StageFrame (so every px token above holds on any projector resolution),
+   inside a full-bleed StageBackground.
+   ========================================================================== */
+html, body, #root { height: 100%; margin: 0; padding: 0; overflow: hidden; }
+body {
+  background: var(--navy-950);
+  color: var(--silver-100);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+.ev-frame {
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 1920px; height: 1080px;
+  transform: translate(-50%, -50%) scale(var(--stage-scale, 1));
+  transform-origin: center center;
+  /* projector overscan safe margin: 4.5% each side */
+  padding: 49px 86px;
+  display: flex; flex-direction: column;
+}
+
+.ev-header {
+  flex: none;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--space-4);
+  min-height: 64px;
+}
+.ev-header--end { justify-content: space-between; }
+.ev-main {
+  flex: 1; min-height: 0;
+  display: flex; flex-direction: column;
+  padding-top: var(--space-3);
+}
+.ev-eyebrow {
+  font-family: var(--font-body); font-weight: 600;
+  font-size: var(--fs-caption); letter-spacing: .18em; text-transform: uppercase;
+  color: var(--silver-400);
+}
+.ev-title {
+  font-size: var(--fs-head); line-height: 1.05; padding-bottom: .06em;
+}
+.ev-title--display { font-size: var(--fs-display); }
+.ev-label {
+  font-family: var(--font-body); font-weight: 600;
+  font-size: var(--fs-label); letter-spacing: .08em; text-transform: uppercase;
+  color: var(--silver-300);
+}
+.ev-caption { font-size: var(--fs-caption); color: var(--silver-400); }
+.ev-numeral {
+  font-family: var(--font-display); font-weight: 800; line-height: 1;
+  color: var(--silver-100); font-variant-numeric: tabular-nums;
+}
+.ev-center {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: var(--space-4); text-align: center;
+}
+.ev-fade-in { animation: ev-fade-in var(--dur-slow) var(--ease-out-expo) both; }
+@keyframes ev-fade-in { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+@keyframes ev-pop-in {
+  0% { opacity: 0; transform: scale(.88); }
+  60% { opacity: 1; transform: scale(1.03); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ev-fade-in { animation: none; }
+  .ev-stage__glow::before, .ev-stage__glow::after { animation: none !important; }
+}
+
+/* ---------- idle text glow: slow breathing on waiting-state copy ---------- */
+@keyframes ev-text-breathe {
+  0%, 100% { opacity: .62; text-shadow: 0 0 0 rgba(160, 180, 255, 0); }
+  50% { opacity: 1; text-shadow: 0 0 18px rgba(160, 180, 255, .38); }
+}
+.ev-center .ev-eyebrow,
+.rf-phase,
+.vt-phase {
+  animation: ev-text-breathe 4.5s ease-in-out infinite;
+}
+.rf-phase { animation-delay: -1.2s; }
+.vt-phase { animation-delay: -1.2s; }
+@media (prefers-reduced-motion: reduce) {
+  .ev-center .ev-eyebrow, .rf-phase, .vt-phase { animation: none; }
+}

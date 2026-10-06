@@ -1,6 +1,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import * as voting from '../../app/modules/voting/service.js';
+import * as votingRepo from '../../app/modules/voting/repo.js';
 import { resetDatabase, makeTestEmployees, seedEmployees, createAdmin, sleep, closeAllConnections } from './helpers.js';
 
 const employees = makeTestEmployees(8, 'W');
@@ -44,6 +45,26 @@ test('a correctly composed finalist list is accepted', async () => {
   assert.equal(result.finalists.length, 5);
 });
 
+test('a single finalist can be edited in place while voting is still in draft', async () => {
+  const [first] = await votingRepo.getFinalists();
+
+  const edited = await voting.updateFinalist(first.id, { name: '  Alicia ', song: '', empId: employees[0].empId });
+  assert.equal(edited.ok, true);
+  assert.deepEqual(
+    { name: edited.finalist.name, song: edited.finalist.song, empId: edited.finalist.empId, position: edited.finalist.position },
+    { name: 'Alicia', song: null, empId: employees[0].empId, position: 1 }
+  );
+
+  assert.equal((await voting.updateFinalist(first.id, { name: '  ' })).ok, false, 'name is required');
+  assert.equal((await voting.updateFinalist(first.id, { empId: 'NO-SUCH-EMP' })).ok, false, 'unknown employee refused');
+  assert.equal((await voting.updateFinalist(999999, { name: 'x' })).reason, 'not_found');
+
+  // Unspecified fields are kept; restore the original values for the later tests.
+  const restored = await voting.updateFinalist(first.id, { name: 'Alice', song: 'Song A', empId: null });
+  assert.equal(restored.ok, true);
+  assert.equal((await votingRepo.getFinalists())[0].name, 'Alice');
+});
+
 test('casting a vote before voting starts is rejected', async () => {
   const emp = employees[0];
   const result = await voting.cast({ empId: emp.empId, last4: emp.last4, finalistId: 1, ip: '1.1.1.1' });
@@ -55,6 +76,10 @@ test('starting requires all 5 finalists (already satisfied) and sets a real wind
   const result = await voting.start({});
   assert.equal(result.ok, true);
   assert.equal(result.config.status, 'open');
+
+  const [locked] = await votingRepo.getFinalists();
+  const refused = await voting.updateFinalist(locked.id, { name: 'Changed mid-vote' });
+  assert.equal(refused.ok, false, 'finalists are locked once voting has started');
 
   // Fetch real finalist IDs (assigned by the DB) for casting in later tests.
   const verifyResult = await voting.verify({ empId: employees[0].empId, last4: employees[0].last4, ip: '1.1.1.1' });

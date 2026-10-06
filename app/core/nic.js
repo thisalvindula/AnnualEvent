@@ -27,6 +27,15 @@ export function extractLast4FromFullNic(rawNic) {
 }
 
 /**
+ * Canonical form of a full NIC (trimmed, upper-case) for display/storage, or
+ * null if it isn't a valid NIC. Same validity rule as extractLast4FromFullNic.
+ */
+export function normalizeFullNic(rawNic) {
+  if (extractLast4FromFullNic(rawNic) === null) return null;
+  return rawNic.trim().toUpperCase();
+}
+
+/**
  * Validates the 4-digit value a voter/registrant types in. Returns true only
  * for exactly 4 digits.
  */
@@ -36,4 +45,15 @@ export function isValidLast4Input(value) {
 
 export function normalizeLast4Input(value) {
   return typeof value === 'string' ? value.trim() : value;
+}
+
+/**
+ * Voter/registrant input for the identity check: either just the last 4 digits
+ * or (if they typed too much) a full NIC in either format. Returns the 4-digit
+ * check value, or null if the input is neither.
+ */
+export function extractLast4FromUserInput(value) {
+  if (typeof value !== 'string') return null;
+  if (isValidLast4Input(value)) return normalizeLast4Input(value);
+  return extractLast4FromFullNic(value);
 }

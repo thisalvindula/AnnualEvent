@@ -1,0 +1,93 @@
+/* Inline-editable admin tables (gift list, employee list). The global
+   button/input styles are full-width blocks; inside these tables they need to
+   be compact. */
+
+.table-scroll {
+  overflow-x: auto;
+}
+
+.edit-table input {
+  margin-top: 0;
+  padding: 0.4rem 0.5rem;
+  font-size: 0.92rem;
+}
+
+.row-actions {
+  display: flex;
+  gap: 0.4rem;
+  white-space: nowrap;
+}
+
+.row-actions button,
+.add-form button {
+  width: auto;
+  margin-top: 0;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.85rem;
+}
+
+.add-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.75rem;
+  align-items: end;
+  margin-top: 0.5rem;
+}
+
+.add-form .wide {
+  grid-column: span 2;
+}
+
+.add-form label {
+  margin-top: 0;
+}
+
+.add-form button {
+  padding: 0.7rem 1.1rem;
+  font-size: 1rem;
+}
+
+.photo-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+/* Employee photo / initials avatar (the public screens style this in
+   screen-theme.css, which admin pages don't load). */
+.employee-photo {
+  flex: none;
+  display: block;
+  width: 2.6rem;
+  height: 2.6rem;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--silver-200);
+}
+
+.employee-photo-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  font-weight: 800;
+  color: #fff;
+  background: linear-gradient(135deg, var(--navy-500), var(--navy-700));
+}
+
+.edit-table td,
+.edit-table th,
+.card table td,
+.card table th {
+  vertical-align: middle;
+}
+
+.card table th {
+  white-space: nowrap;
+}
+
+.employee-photo-lg {
+  width: 5rem;
+  height: 5rem;
+  font-size: 1.6rem;
+}

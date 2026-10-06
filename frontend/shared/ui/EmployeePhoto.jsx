@@ -1,6 +1,4 @@
-import { useState } from 'preact/hooks';
-
-const EXTENSIONS = ['jpg', 'png'];
+import { useEffect, useState } from 'preact/hooks';
 
 function initials(name) {
   const parts = (name ?? '').trim().split(/\s+/).filter(Boolean);
@@ -10,16 +8,17 @@ function initials(name) {
   return (first + last).toUpperCase();
 }
 
-// Photos are baked into the image at build time, named "<empId>.jpg" or
-// "<empId>.png" (see Dockerfile / app/server.js's /employee-photos/ mount).
-// Falls back to an initials avatar when there's no empId, or when neither
-// extension loads (photo missing for that employee).
-export function EmployeePhoto({ empId, name, size = 'sm' }) {
-  const [extIndex, setExtIndex] = useState(0);
+// Photos live in employee-photos/ (baked into the image at build time, see
+// Dockerfile / app/server.js's /employee-photos/ mount); each employee record
+// stores the exact file name (imageName, e.g. "E001.jpg"). Falls back to an
+// initials avatar when there's no imageName or the file doesn't load.
+export function EmployeePhoto({ imageName, name, size = 'sm' }) {
+  const [failed, setFailed] = useState(false);
 
-  const showFallback = !empId || extIndex >= EXTENSIONS.length;
+  // A different file name (e.g. after an edit) deserves a fresh attempt.
+  useEffect(() => setFailed(false), [imageName]);
 
-  if (showFallback) {
+  if (!imageName || failed) {
     return (
       <div className={`employee-photo employee-photo-${size} employee-photo-fallback`}>
         {initials(name)}
@@ -30,9 +29,9 @@ export function EmployeePhoto({ empId, name, size = 'sm' }) {
   return (
     <img
       className={`employee-photo employee-photo-${size}`}
-      src={`/employee-photos/${empId}.${EXTENSIONS[extIndex]}`}
-      alt={name || empId}
-      onError={() => setExtIndex((i) => i + 1)}
+      src={`/employee-photos/${encodeURIComponent(imageName)}`}
+      alt={name || imageName}
+      onError={() => setFailed(true)}
     />
   );
 }
